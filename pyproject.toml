@@ -1,0 +1,31 @@
+# Conventions de code du projet (outil : ruff).
+#
+#   pip install -r requirements-dev.txt
+#   ruff check .          # vérifie
+#   ruff check --fix .    # corrige automatiquement ce qui peut l'être
+#
+# Le code et les identifiants sont en anglais ; les commentaires et les messages
+# destinés à l'utilisateur sont en français.
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["venv", ".venv", "data", "secrets"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle (erreurs)
+    "W",    # pycodestyle (avertissements)
+    "F",    # pyflakes
+    "I",    # imports triés (isort)
+    "N",    # pep8-naming (snake_case, PascalCase, UPPER_CASE…)
+    "UP",   # pyupgrade (syntaxe moderne)
+    "B",    # flake8-bugbear
+]
+ignore = [
+    "B008",  # FastAPI : File()/Depends() dans les valeurs par défaut est le style attendu
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["app"]

@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stage Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23e0a8f0'/%3E%3Cpath d='M18 34l10 10 18-22' fill='none' stroke='%2314121a' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['"Schibsted Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        colors: {
+          ink: '#14121a',
+          panel: '#c9d1dc',
+          'panel-deep': '#b4bfce',
+          lilac: '#e0a8f0',
+          'lilac-soft': '#ecc9f6',
+        },
+        borderRadius: { panel: '2rem' },
+      },
+    },
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/vue@3.4.38/dist/vue.global.prod.js"></script>
+<style>
+  [v-cloak] { display: none; }
+  html, body { background: #fbfafd; color: #14121a; }
+  /* Éditeur riche : Tailwind remet à zéro les listes et paragraphes, on les rétablit */
+  .editor:empty::before { content: attr(data-placeholder); color: #8a8f9c; pointer-events: none; }
+  .editor p { margin: 0 0 .75em; }
+  .editor ul { list-style: disc; padding-left: 1.4em; margin: 0 0 .75em; }
+  .editor ol { list-style: decimal; padding-left: 1.4em; margin: 0 0 .75em; }
+  .editor a { color: #6d28d9; text-decoration: underline; }
+  .editor:focus { outline: none; }
+  /* Squelette de chargement pendant la réflexion de l'IA */
+  @keyframes shimmer { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
+  .skeleton {
+    background: linear-gradient(90deg, #e3e7ee 25%, #f3f5f9 45%, #e3e7ee 65%);
+    background-size: 240% 100%; animation: shimmer 1.4s linear infinite; border-radius: .6rem;
+  }
+  @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+  .scroll-thin { scrollbar-width: thin; scrollbar-color: #9aa6b8 transparent; }
+  :focus-visible { outline: 3px solid #6d28d9; outline-offset: 2px; }
+</style>
+</head>
+
+<body class="font-sans antialiased">
+<div id="app" v-cloak class="p-3 lg:p-4 lg:h-screen">
+  <div class="grid grid-cols-1 lg:grid-cols-[22rem_minmax(0,1fr)] gap-4 lg:h-full">
+
+    <!-- ===================== COLONNE GAUCHE ===================== -->
+    <aside class="flex flex-col gap-4 min-h-0 lg:h-full">
+
+      <!-- Candidatures en cours -->
+      <section class="bg-panel rounded-panel flex flex-col min-h-[18rem] lg:min-h-0 lg:flex-[1.15] overflow-hidden">
+        <header class="flex items-center justify-between gap-2 px-6 pt-5 pb-2">
+          <h2 class="text-lg font-extrabold">{{ showTrash ? 'Corbeille' : 'Candidatures' }}</h2>
+          <button @click="showTrash = !showTrash"
+                  class="text-sm font-semibold rounded-full px-3 py-1 hover:bg-white/50">
+            {{ showTrash ? 'Retour' : 'Corbeille (' + companies.trash.length + ')' }}
+          </button>
+        </header>
+
+        <ul class="flex-1 min-h-0 overflow-y-auto scroll-thin px-3 pb-2 space-y-2.5">
+          <li v-for="c in (showTrash ? companies.trash : companies.active)" :key="c.id">
+            <button v-if="!showTrash" @click="selectCompany(c)"
+                    :class="['w-full flex items-center justify-between gap-3 rounded-full px-5 py-3.5 text-left transition-colors',
+                             selectedId === c.id ? 'bg-lilac ring-2 ring-ink' : 'bg-lilac-soft hover:bg-lilac']">
+              <span class="text-lg font-extrabold leading-tight truncate">{{ c.name }}</span>
+              <span :class="['shrink-0 text-xs font-bold rounded-full px-2.5 py-1', STATUS[c.status]?.cls]">
+                {{ STATUS[c.status]?.label || c.status }}
+              </span>
+            </button>
+            <div v-else class="flex items-center justify-between gap-3 rounded-full bg-white/60 px-5 py-3">
+              <span class="font-bold truncate">{{ c.name }}</span>
+              <button @click="restoreCompany(c)" class="text-sm font-bold rounded-full bg-ink text-white px-3 py-1">Restaurer</button>
+            </div>
+          </li>
+          <li v-if="!(showTrash ? companies.trash : companies.active).length"
+              class="px-4 py-6 text-center text-sm text-slate-700">
+            <template v-if="showTrash">La corbeille est vide.</template>
+            <template v-else-if="status.sync.running">Import de ta boîte Gmail en cours…</template>
+            <template v-else-if="!status.gmail_connected">Connecte Gmail pour importer tes candidatures.</template>
+            <template v-else>Aucune candidature pour l'instant. Envoie ta première candidature depuis la liste du bas.</template>
+          </li>
+        </ul>
+
+        <footer class="px-6 py-3 text-center">
+          <p class="font-bold text-sm">Tous les mails de stage de la boîte Gmail</p>
+          <p class="text-xs text-slate-700 mt-0.5" aria-live="polite">
+            <template v-if="status.sync.running">
+              Synchronisation {{ status.sync.mode === 'full' ? 'complète' : '' }}
+              <template v-if="status.sync.total">({{ status.sync.done }}/{{ status.sync.total }})</template>…
+            </template>
+            <template v-else-if="status.sync.last_run">Dernière synchro {{ ago(status.sync.last_run) }}</template>
+            <template v-else>Pas encore synchronisé</template>
+            <button v-if="status.gmail_connected && !status.sync.running" @click="syncNow(false)"
+                    class="ml-1 underline font-semibold">Synchroniser</button>
+          </p>
+          <p v-if="status.sync.last_error" class="text-xs text-red-800 font-semibold mt-1">{{ status.sync.last_error }}</p>
+        </footer>
+      </section>
+
+      <!-- Entreprises susceptibles d'être contactées -->
+      <section class="bg-panel rounded-panel flex flex-col min-h-[14rem] lg:min-h-0 lg:flex-1 overflow-hidden">
+        <header class="flex items-center justify-between gap-2 px-6 pt-5 pb-2">
+          <h2 class="text-lg font-extrabold leading-tight">Entreprises susceptibles d'être contactées</h2>
+          <button @click="openModal('add')" aria-label="Ajouter une entreprise à contacter" title="Ajouter une entreprise"
+                  class="shrink-0 size-11 rounded-full bg-ink text-white grid place-items-center hover:scale-105 transition-transform">
+            <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </header>
+        <ul class="flex-1 min-h-0 overflow-y-auto scroll-thin px-3 pb-3 space-y-2">
+          <li v-for="c in companies.prospects" :key="c.id">
+            <button @click="selectCompany(c)"
+                    :class="['w-full rounded-3xl px-5 py-3 text-left transition-colors',
+                             selectedId === c.id ? 'bg-white ring-2 ring-ink' : 'bg-white/60 hover:bg-white']">
+              <span class="block font-bold truncate">{{ c.name }}</span>
+              <span class="block text-xs text-slate-600 truncate">{{ c.email || c.website || 'Pas d\'adresse renseignée' }}</span>
+            </button>
+          </li>
+          <li v-if="!companies.prospects.length" class="px-4 py-6 text-center text-sm text-slate-700">
+            Ajoute une entreprise avec le bouton +, puis clique dessus : l'IA prépare ton e-mail.
+          </li>
+        </ul>
+      </section>
+    </aside>
+
+    <!-- ===================== COLONNE DROITE ===================== -->
+    <main class="grid grid-rows-[auto_minmax(0,1fr)_auto] gap-4 min-h-0 lg:h-full">
+
+      <!-- Bandeau du haut : prochaine relance + tokens + notifications -->
+      <div class="flex flex-wrap items-stretch gap-3">
+        <div class="flex-1 min-w-[16rem] bg-panel rounded-full px-6 py-3 flex items-center justify-between gap-3">
+          <template v-if="!status.gmail_connected">
+            <p class="text-sm font-semibold">
+              {{ status.needs_reauth ? 'L\'autorisation Gmail a expiré.' : 'Gmail n\'est pas connecté.' }}
+              <span v-if="!status.has_client_secret" class="text-red-800">Il manque secrets/credentials.json (voir le README).</span>
+            </p>
+            <a href="/auth/login" class="shrink-0 rounded-full bg-ink text-white font-bold text-sm px-4 py-2">Connecter Gmail</a>
+          </template>
+          <template v-else-if="nextFollowup">
+            <p class="text-sm min-w-0">
+              <span class="font-extrabold text-base">Prochaine relance : {{ nextFollowup.name }}</span>
+              <span class="text-slate-700"> — relance {{ nextFollowup.label }},
+                {{ nextFollowup.overdue ? 'en retard de ' + dayDiff(nextFollowup.due_at) : 'dans ' + dayDiff(nextFollowup.due_at) }}</span>
+            </p>
+            <button @click="prepareFollowup(nextFollowup.company_id)"
+                    class="shrink-0 rounded-full bg-ink text-white font-bold text-sm px-4 py-2">Préparer la relance</button>
+          </template>
+          <p v-else class="text-sm font-semibold">Aucune relance à faire pour le moment.</p>
+        </div>
+
+        <!-- Jauge de tokens -->
+        <div class="bg-panel rounded-full px-5 py-2.5 flex items-center gap-3 min-w-[13rem]"
+             :title="'Modèle : ' + status.tokens.model + '. Budget mensuel indicatif : ' + fmt(status.tokens.budget) + ' tokens.'">
+          <div class="flex-1">
+            <div class="flex items-baseline justify-between gap-2 text-xs font-bold">
+              <span>{{ status.ai_enabled ? 'Tokens IA' : 'IA désactivée' }}</span>
+              <span>{{ fmt(status.tokens.month_tokens) }} / {{ fmt(status.tokens.budget) }}</span>
+            </div>
+            <div class="mt-1 h-2 rounded-full bg-white/70 overflow-hidden" role="progressbar"
+                 :aria-valuenow="status.tokens.percent" aria-valuemin="0" aria-valuemax="100" aria-label="Consommation de tokens du mois">
+              <div class="h-full rounded-full transition-all"
+                   :class="status.tokens.percent > 90 ? 'bg-red-600' : status.tokens.percent > 70 ? 'bg-amber-500' : 'bg-ink'"
+                   :style="{ width: Math.min(100, status.tokens.percent) + '%' }"></div>
+            </div>
+            <p class="text-[11px] text-slate-700 mt-1">{{ status.tokens.month_requests }} requêtes ce mois, {{ status.tokens.today_requests }} aujourd'hui</p>
+          </div>
+        </div>
+
+        <!-- Cloche -->
+        <div class="relative">
+          <button @click="toggleNotifs" :aria-label="'Notifications, ' + notifs.unread + ' non lues'"
+                  class="h-full aspect-square min-w-14 bg-panel rounded-full grid place-items-center relative hover:bg-panel-deep">
+            <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+            <span v-if="notifs.unread" class="absolute -top-1 -right-1 min-w-6 h-6 px-1.5 rounded-full bg-red-600 text-white text-xs font-extrabold grid place-items-center">{{ notifs.unread }}</span>
+          </button>
+          <div v-if="showNotifs" class="fixed inset-0 z-30" @click="showNotifs = false"></div>
+          <div v-if="showNotifs" class="absolute right-0 top-full mt-2 z-40 w-[22rem] max-w-[90vw] bg-white rounded-3xl shadow-xl ring-1 ring-black/10 overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+              <h3 class="font-extrabold">Notifications</h3>
+              <button v-if="notifs.unread" @click="markAllRead" class="text-sm font-semibold underline">Tout marquer comme lu</button>
+            </div>
+            <ul class="max-h-80 overflow-y-auto scroll-thin">
+              <li v-for="n in notifs.items" :key="n.id">
+                <button @click="openNotification(n)" class="w-full text-left px-5 py-3 hover:bg-slate-50 flex gap-3 items-start">
+                  <span :class="['mt-1.5 size-2.5 rounded-full shrink-0', n.is_read ? 'bg-slate-300' : (n.type === 'followup' ? 'bg-red-600' : 'bg-emerald-600')]"></span>
+                  <span class="min-w-0">
+                    <span :class="['block text-sm', n.is_read ? 'text-slate-600' : 'font-bold']">{{ n.message }}</span>
+                    <span class="block text-xs text-slate-500">{{ ago(n.created_at) }}</span>
+                  </span>
+                </button>
+              </li>
+              <li v-if="!notifs.items.length" class="px-5 py-8 text-center text-sm text-slate-600">Rien à signaler.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zone centrale : conversation (haut) + éditeur (bas, fixe) -->
+      <section class="bg-panel rounded-panel flex flex-col min-h-[34rem] lg:min-h-0 overflow-hidden">
+
+        <!-- Aucune sélection -->
+        <div v-if="!current" class="flex-1 grid place-items-center p-8 text-center">
+          <div class="max-w-md">
+            <h2 class="text-2xl font-extrabold">Choisis une entreprise</h2>
+            <p class="mt-2 text-slate-700">Clique sur une candidature pour relire l'échange complet, ou sur une entreprise à contacter pour que l'IA prépare ton e-mail. Rien n'est jamais envoyé sans ton clic sur « Envoyer ».</p>
+          </div>
+        </div>
+
+        <template v-else>
+          <!-- En-tête entreprise -->
+          <header class="flex flex-wrap items-center justify-between gap-3 px-6 pt-4 pb-3">
+            <div class="min-w-0">
+              <input v-if="renaming" v-model="renameValue" ref="renameEl"
+                     @keydown.enter="saveRename" @keydown.esc="renaming = false" @blur="saveRename"
+                     class="text-xl font-extrabold rounded-xl bg-white px-3 py-1 border-0 w-full">
+              <h2 v-else class="text-xl font-extrabold truncate flex items-center gap-1.5">
+                <span @click="startRename" title="Cliquer pour renommer" class="cursor-text">{{ current.name }}</span>
+                <button @click="startRename" aria-label="Renommer l'entreprise" title="Renommer l'entreprise"
+                        class="shrink-0 text-slate-400 hover:text-slate-700">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+                </button>
+              </h2>
+              <p class="text-xs text-slate-700 truncate">
+                <span v-if="current.email">{{ current.email }}</span>
+                <a v-if="current.website" :href="siteUrl(current.website)" target="_blank" rel="noopener" class="underline ml-2">{{ current.website }}</a>
+                <span v-if="current.summary" class="ml-2 italic">{{ current.summary }}</span>
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <label v-if="current.stored_status !== 'prospect'" class="flex items-center gap-2 text-sm font-semibold">
+                Statut
+                <select :value="current.stored_status" @change="forceStatus($event.target.value)"
+                        class="rounded-full bg-white px-3 py-1.5 text-sm font-semibold border-0">
+                  <option value="pending">En attente</option>
+                  <option value="followup">Relance</option>
+                  <option value="replied">Répondu</option>
+                  <option value="refused">Refusé</option>
+                </select>
+              </label>
+              <button v-if="messages.length" @click="openMove(messages.map(m => m.id))"
+                      title="Déplacer toute la conversation vers une autre entreprise" aria-label="Déplacer toute la conversation"
+                      class="size-9 rounded-full bg-white/70 hover:bg-white grid place-items-center">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+              </button>
+              <button @click="openModal('edit')" title="Modifier l'entreprise" aria-label="Modifier l'entreprise"
+                      class="size-9 rounded-full bg-white/70 hover:bg-white grid place-items-center">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+              </button>
+              <button @click="ignoreCompany" title="Ignorer : faux positif ou entreprise inutile (envoie à la corbeille)"
+                      class="rounded-full bg-white/70 hover:bg-white px-3 py-1.5 text-sm font-semibold flex items-center gap-1.5">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>
+                Ignorer
+              </button>
+            </div>
+          </header>
+
+          <!-- Historique en bulles (défile) -->
+          <div ref="chatEl" class="flex-1 min-h-0 overflow-y-auto scroll-thin px-6 pb-3 space-y-3">
+            <p v-if="loadingThread" class="text-sm text-slate-700">Chargement de la conversation…</p>
+            <p v-else-if="!messages.length && !draftExists" class="text-sm text-slate-700">Aucun e-mail échangé pour l'instant.</p>
+            <div v-for="m in messages" :key="m.id" :class="['flex', m.direction === 'out' ? 'justify-end' : 'justify-start']">
+              <article :class="['max-w-[85%] rounded-3xl px-5 py-3 shadow-sm', m.direction === 'out' ? 'bg-lilac rounded-br-lg' : 'bg-white rounded-bl-lg']">
+                <p class="flex items-center gap-2 text-xs font-bold text-slate-700">
+                  <span>{{ m.direction === 'out' ? 'Toi' : senderName(m.sender) }} • {{ dateTime(m.sent_at) }}</span>
+                  <span v-if="m.has_attachments" title="Pièce jointe">📎</span>
+                  <button @click="openMove([m.id])" title="Changer ce mail d'entreprise" aria-label="Changer ce mail d'entreprise"
+                          class="ml-auto shrink-0 rounded-full p-1 opacity-40 hover:opacity-100 hover:bg-black/10">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+                  </button>
+                </p>
+                <p v-if="m.subject && m === messages[0]" class="text-sm font-bold mt-0.5">{{ m.subject }}</p>
+                <p class="text-sm mt-1 whitespace-pre-wrap break-words">{{ m.body }}</p>
+              </article>
+            </div>
+            <div v-if="draftExists && !generating && showReplyPanel" class="flex justify-end">
+              <article class="max-w-[85%] rounded-3xl rounded-br-lg px-5 py-2.5 border-2 border-dashed border-ink/40 bg-white/40 text-sm font-semibold">
+                Brouillon non envoyé : {{ kindLabel(editor.kind) }}
+              </article>
+            </div>
+          </div>
+
+          <!-- Éditeur (fixe en bas) -->
+          <div class="shrink-0 bg-white rounded-t-[1.75rem] mx-2 mb-2 rounded-b-[1.5rem] flex flex-col h-[21rem]">
+            <div class="flex flex-wrap items-center gap-2 px-5 pt-3">
+              <span class="text-sm font-extrabold">{{ editor.kind ? kindLabel(editor.kind) : 'Nouveau message' }}</span>
+              <span class="flex-1"></span>
+              <button v-if="current.stored_status !== 'prospect'" @click="generateDraft('followup')" :disabled="generating"
+                      class="rounded-full bg-lilac hover:bg-lilac-soft disabled:opacity-50 px-3 py-1.5 text-sm font-bold">
+                {{ current.status === 'followup' ? 'Générer la relance' : 'Rédiger une relance' }}
+              </button>
+              <button v-if="current.stored_status !== 'prospect'" @click="showReplyPanel = !showReplyPanel; startReply()" :disabled="generating"
+                      class="rounded-full bg-slate-100 hover:bg-slate-200 disabled:opacity-50 px-3 py-1.5 text-sm font-bold">Répondre</button>
+              <button v-if="current.stored_status === 'prospect'" @click="generateDraft('application')" :disabled="generating"
+                      class="rounded-full bg-lilac hover:bg-lilac-soft disabled:opacity-50 px-3 py-1.5 text-sm font-bold">Régénérer avec l'IA</button>
+            </div>
+
+            <div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 px-5 pt-2 text-sm">
+              <label for="to" class="font-semibold text-slate-600">À</label>
+              <input id="to" v-model="editor.to" type="email" placeholder="adresse@entreprise.fr"
+                     class="min-w-0 rounded-lg bg-slate-100 px-3 py-1.5 border-0">
+              <label for="subj" class="font-semibold text-slate-600">Objet</label>
+              <input id="subj" v-model="editor.subject" type="text" placeholder="Objet de l'e-mail"
+                     class="min-w-0 rounded-lg bg-slate-100 px-3 py-1.5 border-0">
+            </div>
+
+            <div v-show="showReplyPanel" class="flex items-center gap-1 px-5 pt-2" role="toolbar" aria-label="Mise en forme">
+              <button v-for="t in toolbar" :key="t.cmd" @mousedown.prevent="format(t)" :title="t.title" :aria-label="t.title"
+                      class="size-8 rounded-lg hover:bg-slate-100 grid place-items-center text-sm" v-html="t.label"></button>
+            </div>
+
+            <!-- squelette pendant la réflexion de l'IA -->
+            <div v-if="generating" class="flex-1 min-h-0 px-5 py-3 space-y-2.5" aria-busy="true" aria-live="polite">
+              <p class="text-sm font-semibold text-slate-600">L'IA rédige ton e-mail…</p>
+              <div class="skeleton h-3.5 w-11/12"></div><div class="skeleton h-3.5 w-full"></div>
+              <div class="skeleton h-3.5 w-9/12"></div><div class="skeleton h-3.5 w-10/12"></div>
+              <div class="skeleton h-3.5 w-6/12"></div>
+            </div>
+            <div v-show="!generating && showReplyPanel" ref="editorEl" class="editor flex-1 min-h-0 overflow-y-auto scroll-thin px-5 py-3 text-sm leading-relaxed"
+                 contenteditable="true" role="textbox" aria-multiline="true" aria-label="Corps de l'e-mail"
+                 data-placeholder="Écris ton message ici, ou demande à l'IA de le rédiger."
+                 @input="onEditorInput"></div>
+
+            <div class="flex flex-wrap items-center gap-2 px-5 py-3 border-t border-slate-200">
+              <label class="flex items-center gap-2 text-sm font-semibold">
+                <input type="checkbox" v-model="includeCv" class="size-4 rounded">
+                Joindre le CV
+                <span class="font-normal text-slate-600">({{ status.cv.exists ? status.cv.filename : 'aucun CV importé' }})</span>
+              </label>
+              <label class="rounded-full bg-slate-100 hover:bg-slate-200 px-3 py-1 text-sm font-semibold cursor-pointer">
+                + Pièce jointe
+                <input type="file" multiple class="sr-only" @change="addFiles">
+              </label>
+              <span v-for="(f, i) in extraFiles" :key="i" class="inline-flex items-center gap-1 rounded-full bg-lilac-soft px-3 py-1 text-xs font-semibold max-w-[12rem]">
+                <span class="truncate">{{ f.name }}</span>
+                <button @click="extraFiles.splice(i, 1)" :aria-label="'Retirer ' + f.name" class="font-extrabold">×</button>
+              </span>
+              <span class="flex-1"></span>
+              <button v-if="draftExists" @click="discardDraft" class="text-sm font-semibold underline">Supprimer le brouillon</button>
+              <button @click="sendMail" :disabled="generating || sending"
+                      class="rounded-full bg-ink text-white font-extrabold px-6 py-2.5 disabled:opacity-50">
+                {{ sending ? 'Envoi…' : 'Envoyer' }}
+              </button>
+            </div>
+          </div>
+        </template>
+      </section>
+
+      <!-- Bandeau du bas : import du dernier CV -->
+      <div @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="onDropCv"
+           :class="['rounded-full px-6 py-3 flex flex-wrap items-center justify-between gap-3 transition-colors',
+                    dragging ? 'bg-lilac ring-2 ring-ink' : 'bg-panel']">
+        <p class="text-sm">
+          <span class="font-extrabold text-base">Import dernier CV</span>
+          <span class="text-slate-700"> — glisse un PDF ici ou choisis un fichier. Il remplace l'ancien et sera joint aux prochains envois.</span>
+        </p>
+        <div class="flex items-center gap-3">
+          <a v-if="status.cv.exists" href="/api/cv/download" target="_blank" rel="noopener" class="text-sm font-semibold underline">
+            {{ status.cv.filename }} (mis à jour {{ ago(status.cv.updated_at) }})
+          </a>
+          <span v-else class="text-sm font-semibold text-red-800">Aucun CV importé</span>
+          <label class="rounded-full bg-ink text-white font-bold text-sm px-4 py-2 cursor-pointer">
+            {{ uploadingCv ? 'Import…' : 'Choisir un PDF' }}
+            <input type="file" accept="application/pdf,.pdf" class="sr-only" @change="onPickCv">
+          </label>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===================== MODALE ajout / modification ===================== -->
+  <div v-if="modal.open" class="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" @click.self="modal.open = false">
+    <form @submit.prevent="submitModal" class="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h3 id="modal-title" class="text-xl font-extrabold">{{ modal.mode === 'add' ? 'Ajouter une entreprise à contacter' : 'Modifier l\'entreprise' }}</h3>
+      <label class="block text-sm font-semibold">Nom de l'entreprise
+        <input v-model="modal.form.name" required ref="modalName" class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+      </label>
+      <label class="block text-sm font-semibold">Site web
+        <input v-model="modal.form.website" placeholder="www.exemple.fr" class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+      </label>
+      <label class="block text-sm font-semibold">E-mail de contact
+        <input v-model="modal.form.email" type="email" placeholder="recrutement@exemple.fr" class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+      </label>
+      <p v-if="modal.error" class="text-sm font-semibold text-red-700">{{ modal.error }}</p>
+      <div class="flex justify-end gap-2">
+        <button type="button" @click="modal.open = false" class="rounded-full px-4 py-2 font-semibold hover:bg-slate-100">Annuler</button>
+        <button type="submit" class="rounded-full bg-ink text-white font-extrabold px-5 py-2">{{ modal.mode === 'add' ? 'Ajouter' : 'Enregistrer' }}</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ===================== MODALE déplacer vers une entreprise ===================== -->
+  <div v-if="move.open" class="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" @click.self="move.open = false">
+    <div class="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="move-title">
+      <h3 id="move-title" class="text-xl font-extrabold">
+        Déplacer {{ move.ids.length > 1 ? 'la conversation' : 'ce mail' }} vers…
+      </h3>
+      <input v-model="move.search" placeholder="Rechercher une entreprise" aria-label="Rechercher une entreprise"
+             class="w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0">
+      <div class="max-h-60 overflow-y-auto scroll-thin space-y-1">
+        <button v-for="c in moveTargets" :key="c.id" @click="moveTo(c.id)" :disabled="busyMove"
+                class="w-full text-left rounded-xl px-3 py-2 hover:bg-lilac-soft disabled:opacity-40">
+          <span class="font-semibold">{{ c.name }}</span>
+          <span v-if="c.email || c.website" class="block text-xs text-slate-500 truncate">{{ c.email || c.website }}</span>
+        </button>
+        <p v-if="!moveTargets.length" class="text-sm text-slate-500 px-1">Aucune entreprise ne correspond.</p>
+      </div>
+      <div class="border-t border-slate-200 pt-3">
+        <label class="block text-sm font-semibold">Ou créer une nouvelle entreprise
+          <div class="mt-1 flex gap-2">
+            <input v-model="move.newName" placeholder="Nom de l'entreprise" @keydown.enter="createAndMove"
+                   class="min-w-0 flex-1 rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+            <button @click="createAndMove" :disabled="!move.newName.trim() || busyMove"
+                    class="rounded-full bg-ink text-white font-bold px-4 disabled:opacity-40">Créer</button>
+          </div>
+        </label>
+      </div>
+      <p v-if="move.error" class="text-sm font-semibold text-red-700">{{ move.error }}</p>
+      <div class="flex justify-end">
+        <button @click="move.open = false" class="rounded-full px-4 py-2 font-semibold hover:bg-slate-100">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== TOAST ===================== -->
+  <div v-if="toast.text" role="status" aria-live="polite"
+       :class="['fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] max-w-[90vw] rounded-full px-5 py-3 text-sm font-bold shadow-xl',
+                toast.error ? 'bg-red-700 text-white' : 'bg-ink text-white']">
+    {{ toast.text }}
+  </div>
+</div>
+
+<script>
+const { createApp, ref, reactive, computed, watch, nextTick, onMounted } = Vue;
+
+const STATUS = {
+  pending:  { label: 'En attente', cls: 'bg-amber-300 text-amber-950' },
+  followup: { label: 'Relance',    cls: 'bg-red-300 text-red-950' },
+  replied:  { label: 'Répondu',    cls: 'bg-emerald-300 text-emerald-950' },
+  refused:  { label: 'Refusé',     cls: 'bg-slate-400/70 text-slate-900' },
+  prospect: { label: 'À contacter', cls: 'bg-white/70 text-slate-800' },
+};
+
+async function api(path, opts = {}) {
+  const headers = { 'X-Requested-With': 'stagetracker', ...(opts.headers || {}) };
+  let body = opts.body;
+  if (body && !(body instanceof FormData) && typeof body === 'object') {
+    body = JSON.stringify(body);
+    headers['Content-Type'] = 'application/json';
+  }
+  const res = await fetch(path, { ...opts, headers, body });
+  if (!res.ok) {
+    let msg = `Erreur ${res.status}`;
+    try { const j = await res.json(); msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail); } catch (_) {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+createApp({
+  setup() {
+    // ---------- état global ----------
+    const status = reactive({
+      gmail_connected: false, needs_reauth: false, has_client_secret: true, ai_enabled: false,
+      cv: { exists: false }, sync: { running: false }, tokens: { month_tokens: 0, budget: 1, percent: 0, month_requests: 0, today_requests: 0, model: '' },
+    });
+    const companies = reactive({ active: [], prospects: [], trash: [] });
+    const notifs = reactive({ unread: 0, items: [] });
+    const nextFollowup = ref(null);
+    const showTrash = ref(false);
+    const showNotifs = ref(false);
+    const toast = reactive({ text: '', error: false });
+
+    // ---------- sélection / conversation ----------
+    const selectedId = ref(null);
+    const current = ref(null);
+    const messages = ref([]);
+    const loadingThread = ref(false);
+    const generating = ref(false);
+    const sending = ref(false);
+    const draftExists = ref(false);
+    const editor = reactive({ kind: '', to: '', subject: '' });
+    const includeCv = ref(true);
+    const extraFiles = ref([]);
+    const editorEl = ref(null);
+    const chatEl = ref(null);
+    const showReplyPanel = ref(false);
+    let selectToken = 0;
+
+    // ---------- CV ----------
+    const dragging = ref(false);
+    const uploadingCv = ref(false);
+
+    // ---------- modale ----------
+    const modal = reactive({ open: false, mode: 'add', form: { name: '', website: '', email: '' }, error: '' });
+    const modalName = ref(null);
+
+    // ---------- déplacer un mail / renommer l'entreprise ----------
+    const renaming = ref(false);
+    const renameValue = ref('');
+    const renameEl = ref(null);
+    const busyMove = ref(false);
+    const move = reactive({ open: false, ids: [], search: '', newName: '', error: '' });
+    const moveTargets = computed(() => {
+      const q = move.search.trim().toLowerCase();
+      const all = [...companies.active, ...companies.prospects];
+      return q ? all.filter((c) => c.name.toLowerCase().includes(q)) : all;
+    });
+
+    const toolbar = [
+      { cmd: 'bold', title: 'Gras', label: '<b>G</b>' },
+      { cmd: 'italic', title: 'Italique', label: '<i>I</i>' },
+      { cmd: 'underline', title: 'Souligné', label: '<u>S</u>' },
+      { cmd: 'insertUnorderedList', title: 'Liste à puces', label: '&#8226;&#8801;' },
+      { cmd: 'createLink', title: 'Insérer un lien', label: '&#128279;' },
+    ];
+
+    // ---------- utilitaires ----------
+    let toastTimer;
+    function notify(text, error = false) {
+      toast.text = text; toast.error = error;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => (toast.text = ''), error ? 6000 : 3000);
+    }
+    const fmt = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1).replace('.0', '') + ' M' : n >= 1e3 ? Math.round(n / 1e3) + ' k' : String(n || 0));
+    const dateTime = (iso) => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+    function ago(iso) {
+      if (!iso) return '';
+      const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+      if (s < 60) return 'à l\'instant';
+      if (s < 3600) return `il y a ${Math.floor(s / 60)} min`;
+      if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`;
+      const d = Math.floor(s / 86400);
+      return `il y a ${d} jour${d > 1 ? 's' : ''}`;
+    }
+    function dayDiff(iso) {
+      const h = Math.abs(new Date(iso).getTime() - Date.now()) / 36e5;
+      if (h < 1) return 'moins d\'une heure';
+      if (h < 24) return `${Math.round(h)} h`;
+      const d = Math.round(h / 24);
+      return `${d} jour${d > 1 ? 's' : ''}`;
+    }
+    const senderName = (s) => (s || '').replace(/<.*>/, '').replace(/"/g, '').trim() || s || 'Inconnu';
+    const siteUrl = (u) => (/^https?:\/\//i.test(u) ? u : 'https://' + u);
+    const kindLabel = (k) => ({ application: 'Candidature', followup: 'Relance', reply: 'Réponse' }[k] || 'Message');
+
+    // ---------- chargement des données ----------
+    async function refreshStatus() { Object.assign(status, await api('/api/status')); }
+    async function refreshCompanies() {
+      Object.assign(companies, await api('/api/companies'));
+      if (current.value) {
+        const fresh = [...companies.active, ...companies.prospects, ...companies.trash].find((c) => c.id === current.value.id);
+        if (fresh) current.value = fresh;
+      }
+    }
+    async function refreshNotifs() { Object.assign(notifs, await api('/api/notifications')); }
+    async function refreshNext() { nextFollowup.value = (await api('/api/next-followup')).item; }
+    async function refreshAll() {
+      try { await Promise.all([refreshStatus(), refreshCompanies(), refreshNotifs(), refreshNext()]); }
+      catch (e) { /* serveur momentanément indisponible */ }
+    }
+
+    // ---------- éditeur ----------
+    function setEditorHtml(html) {
+      if (editorEl.value) editorEl.value.innerHTML = html || '';
+    }
+    function getEditorHtml() { return editorEl.value ? editorEl.value.innerHTML : ''; }
+    function editorText() { return editorEl.value ? editorEl.value.innerText.trim() : ''; }
+    function format(t) {
+      if (!editorEl.value) return;
+      editorEl.value.focus();
+      if (t.cmd === 'createLink') {
+        const url = window.prompt('Adresse du lien (https://…)');
+        if (url) document.execCommand('createLink', false, url);
+      } else document.execCommand(t.cmd, false, null);
+      scheduleSave();
+    }
+    function onEditorInput() { scheduleSave(); }
+
+    let saveTimer;
+    let pendingSave = false;
+    function scheduleSave() {
+      clearTimeout(saveTimer);
+      pendingSave = true;
+      saveTimer = setTimeout(saveDraft, 1200);
+    }
+    async function saveDraft() {
+      pendingSave = false;
+      if (!current.value || generating.value || sending.value) return;
+      if (!editor.kind || (!editorText() && !editor.subject)) return;
+      try {
+        await api(`/api/companies/${current.value.id}/draft`, {
+          method: 'PUT', body: { kind: editor.kind, to: editor.to, subject: editor.subject, body_html: getEditorHtml() },
+        });
+        draftExists.value = true;
+      } catch (e) { /* l'enregistrement auto est silencieux */ }
+    }
+    watch(() => [editor.to, editor.subject], scheduleSave);
+
+    function loadDraftIntoEditor(draft) {
+      editor.kind = draft ? draft.kind : '';
+      editor.to = draft ? draft.to : (current.value && current.value.email) || '';
+      editor.subject = draft ? draft.subject : '';
+      draftExists.value = !!draft;
+      // Un brouillon doit être visible : sinon la génération IA reste masquée.
+      if (draft) showReplyPanel.value = true;
+      nextTick(() => setEditorHtml(draft ? draft.body_html : ''));
+    }
+
+    // ---------- sélection d'une entreprise ----------
+    async function selectCompany(c) {
+      if (pendingSave) { clearTimeout(saveTimer); await saveDraft(); }  // ne perd pas la saisie en cours
+      const token = ++selectToken;
+      selectedId.value = c.id;
+      current.value = c;
+      messages.value = [];
+      extraFiles.value = [];
+      loadingThread.value = true;
+      generating.value = false;
+      try {
+        const data = await api(`/api/companies/${c.id}/thread`);
+        if (token !== selectToken) return;
+        current.value = data.company;
+        messages.value = data.messages;
+        loadDraftIntoEditor(data.draft);
+        loadingThread.value = false;
+        await nextTick();
+        if (chatEl.value) chatEl.value.scrollTop = chatEl.value.scrollHeight;
+        refreshNotifs();
+        // Entreprise à contacter sans brouillon : l'IA prépare l'e-mail
+        if (data.company.stored_status === 'prospect' && !data.draft) await generateDraft('application', token);
+      } catch (e) {
+        if (token === selectToken) { loadingThread.value = false; notify(e.message, true); }
+      }
+    }
+
+    async function generateDraft(kind, token = selectToken) {
+      if (!current.value) return;
+      const id = current.value.id;
+      generating.value = true;
+      showReplyPanel.value = true;  // éditeur visible pendant et après la génération
+      try {
+        const draft = await api(`/api/companies/${id}/draft`, { method: 'POST', body: { kind } });
+        if (token !== selectToken || !current.value || current.value.id !== id) return;
+        generating.value = false;
+        loadDraftIntoEditor(draft);
+        notify('Brouillon prêt : relis-le avant d\'envoyer.');
+      } catch (e) {
+        notify(e.message, true);
+      } finally {
+        if (token === selectToken) generating.value = false;
+        refreshStatus();
+      }
+    }
+
+    async function startReply() {
+      if (!current.value) return;
+      showReplyPanel.value = true;
+      try {
+        const draft = await api(`/api/companies/${current.value.id}/draft`, { method: 'POST', body: { kind: 'reply' } });
+        loadDraftIntoEditor(draft);
+        await nextTick();
+        editorEl.value && editorEl.value.focus();
+      } catch (e) { notify(e.message, true); }
+    }
+
+    async function prepareFollowup(companyId) {
+      showNotifs.value = false;
+      const c = [...companies.active, ...companies.prospects].find((x) => x.id === companyId);
+      if (!c) return;
+      await selectCompany(c);
+      if (!draftExists.value) await generateDraft('followup');
+    }
+
+    async function discardDraft() {
+      if (!current.value) return;
+      await api(`/api/companies/${current.value.id}/draft`, { method: 'DELETE' });
+      loadDraftIntoEditor(null);
+    }
+
+    // ---------- envoi ----------
+    function addFiles(e) {
+      extraFiles.value.push(...Array.from(e.target.files));
+      e.target.value = '';
+    }
+    async function sendMail() {
+      if (!current.value) return;
+      if (!showReplyPanel.value) {
+        showReplyPanel.value = true;
+        return;
+      }
+      if (!editorText()) return notify('Le message est vide.', true);
+      if (!editor.to) return notify('Indique l\'adresse du destinataire.', true);
+      const attach = (includeCv.value ? 'le CV' : 'aucune pièce jointe obligatoire') + (extraFiles.value.length ? ` + ${extraFiles.value.length} fichier(s)` : '');
+      if (!window.confirm(`Envoyer cet e-mail à ${editor.to} ?\nObjet : ${editor.subject}\nPièces jointes : ${attach}`)) return;
+      sending.value = true;
+      clearTimeout(saveTimer);
+      try {
+        const fd = new FormData();
+        fd.append('to', editor.to);
+        fd.append('subject', editor.subject);
+        fd.append('body_html', getEditorHtml());
+        fd.append('kind', editor.kind || (current.value.stored_status === 'prospect' ? 'application' : 'reply'));
+        fd.append('include_cv', includeCv.value ? 'true' : 'false');
+        extraFiles.value.forEach((f) => fd.append('files', f));
+        const res = await api(`/api/companies/${current.value.id}/send`, { method: 'POST', body: fd });
+        notify('E-mail envoyé.');
+        extraFiles.value = [];
+        await refreshCompanies();
+        await selectCompany(res.company);
+        refreshNext(); refreshNotifs();
+      } catch (e) {
+        notify(e.message, true);
+      } finally { sending.value = false; }
+    }
+
+    // ---------- gestion des entreprises ----------
+    function openModal(mode) {
+      modal.mode = mode; modal.error = '';
+      modal.form = mode === 'edit' && current.value
+        ? { name: current.value.name, website: current.value.website || '', email: current.value.email || '' }
+        : { name: '', website: '', email: '' };
+      modal.open = true;
+      nextTick(() => modalName.value && modalName.value.focus());
+    }
+    async function submitModal() {
+      modal.error = '';
+      try {
+        if (modal.mode === 'add') {
+          const c = await api('/api/companies', { method: 'POST', body: modal.form });
+          modal.open = false;
+          await refreshCompanies();
+          await selectCompany(c);
+        } else {
+          await api(`/api/companies/${current.value.id}`, { method: 'PATCH', body: modal.form });
+          modal.open = false;
+          await refreshCompanies();
+        }
+      } catch (e) { modal.error = e.message; }
+    }
+    async function forceStatus(value) {
+      try {
+        await api(`/api/companies/${current.value.id}`, { method: 'PATCH', body: { status: value } });
+        await Promise.all([refreshCompanies(), refreshNext()]);
+        notify('Statut mis à jour.');
+      } catch (e) { notify(e.message, true); }
+    }
+    function startRename() {
+      if (!current.value || renaming.value) return;
+      renameValue.value = current.value.name;
+      renaming.value = true;
+      nextTick(() => renameEl.value && renameEl.value.select());
+    }
+    async function saveRename() {
+      if (!renaming.value) return;
+      renaming.value = false;
+      const name = renameValue.value.trim();
+      if (!current.value || !name || name === current.value.name) return;
+      try {
+        await api(`/api/companies/${current.value.id}`, { method: 'PATCH', body: { name } });
+        await refreshCompanies();
+        notify('Nom mis à jour.');
+      } catch (e) { notify(e.message, true); }
+    }
+
+    function openMove(ids) {
+      const list = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
+      if (!list.length) return;
+      move.ids = list; move.search = ''; move.newName = ''; move.error = ''; move.open = true;
+    }
+    async function moveTo(companyId, quiet) {
+      busyMove.value = true;
+      try {
+        const res = await api('/api/messages/move', { method: 'POST', body: { message_ids: move.ids, company_id: companyId } });
+        const count = move.ids.length;
+        move.open = false;
+        await refreshCompanies();
+        const target = [...companies.active, ...companies.prospects].find((c) => c.id === companyId) || res.company;
+        if (target) await selectCompany(target);
+        if (!quiet) notify(count > 1 ? 'Conversation déplacée.' : 'Mail déplacé.');
+      } catch (e) { notify(e.message, true); }
+      finally { busyMove.value = false; }
+    }
+    async function createAndMove() {
+      const name = move.newName.trim();
+      if (!name) return;
+      busyMove.value = true;
+      move.error = '';
+      try {
+        const c = await api('/api/companies', { method: 'POST', body: { name } });
+        move.newName = '';
+        await moveTo(c.id, true);
+        notify(`Mail déplacé vers « ${c.name} ».`);
+      } catch (e) { move.error = e.message; }
+      finally { busyMove.value = false; }
+    }
+    async function ignoreCompany() {
+      if (!current.value) return;
+      if (!window.confirm(`Ignorer « ${current.value.name} » ? Elle ira dans la corbeille et ses futurs e-mails seront ignorés.`)) return;
+      try {
+        await api(`/api/companies/${current.value.id}/ignore`, { method: 'POST' });
+        current.value = null; selectedId.value = null; messages.value = [];
+        await Promise.all([refreshCompanies(), refreshNext(), refreshNotifs()]);
+        notify('Envoyée à la corbeille.');
+      } catch (e) { notify(e.message, true); }
+    }
+    async function restoreCompany(c) {
+      try {
+        await api(`/api/companies/${c.id}/restore`, { method: 'POST' });
+        await refreshCompanies();
+        notify(`« ${c.name} » restaurée.`);
+      } catch (e) { notify(e.message, true); }
+    }
+
+    // ---------- notifications ----------
+    async function toggleNotifs() { showNotifs.value = !showNotifs.value; if (showNotifs.value) await refreshNotifs(); }
+    async function markAllRead() { Object.assign(notifs, await api('/api/notifications/read', { method: 'POST', body: {} })); }
+    async function openNotification(n) {
+      await api('/api/notifications/read', { method: 'POST', body: { ids: [n.id] } });
+      showNotifs.value = false;
+      if (n.type === 'followup') await prepareFollowup(n.company_id);
+      else {
+        const c = [...companies.active, ...companies.prospects].find((x) => x.id === n.company_id);
+        if (c) await selectCompany(c);
+      }
+      refreshNotifs();
+    }
+
+    // ---------- synchro & CV ----------
+    async function syncNow(full) {
+      try { await api('/api/sync' + (full ? '?full=true' : ''), { method: 'POST' }); refreshStatus(); }
+      catch (e) { notify(e.message, true); }
+    }
+    async function uploadCv(file) {
+      if (!file) return;
+      uploadingCv.value = true;
+      try {
+        const fd = new FormData(); fd.append('file', file);
+        status.cv = await api('/api/cv', { method: 'POST', body: fd });
+        notify('CV mis à jour : il sera joint aux prochains envois.');
+      } catch (e) { notify(e.message, true); }
+      finally { uploadingCv.value = false; }
+    }
+    function onPickCv(e) { uploadCv(e.target.files[0]); e.target.value = ''; }
+    function onDropCv(e) { dragging.value = false; uploadCv(e.dataTransfer.files[0]); }
+
+    // ---------- cycle de vie ----------
+    onMounted(async () => {
+      await refreshAll();
+      setInterval(() => refreshAll(), 20000);
+      setInterval(() => { if (status.sync.running) refreshAll(); }, 4000);
+    });
+    watch(() => status.sync.running, (now, before) => { if (before && !now) refreshAll(); });
+    watch(showTrash, () => { /* la corbeille remplace la liste, rien d'autre à faire */ });
+
+    return {
+      STATUS, status, companies, notifs, nextFollowup, showTrash, showNotifs, toast,
+      selectedId, current, messages, loadingThread, generating, sending, draftExists, editor, showReplyPanel, includeCv, extraFiles,
+      editorEl, chatEl, dragging, uploadingCv, modal, modalName, toolbar,
+      renaming, renameValue, renameEl, busyMove, move, moveTargets,
+      fmt, dateTime, ago, dayDiff, senderName, siteUrl, kindLabel,
+      selectCompany, generateDraft, startReply, prepareFollowup, discardDraft, addFiles, sendMail,
+      openModal, submitModal, forceStatus, ignoreCompany, restoreCompany, toggleNotifs, markAllRead, openNotification,
+      startRename, saveRename, openMove, moveTo, createAndMove,
+      syncNow, onPickCv, onDropCv, format, onEditorInput,
+    };
+  },
+}).mount('#app');
+</script>
+</body>
+</html>

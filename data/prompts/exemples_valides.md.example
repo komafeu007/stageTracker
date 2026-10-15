@@ -1,0 +1,286 @@
+# Exemples Valides d'Emails de Candidature
+
+> ⚠️ **IMPORTANT** : Ces exemples sont des **templates à personnaliser**. 
+> Remplace TOUTES les informations entre crochets `[...]` et complète avec TES propres expériences.
+
+---
+
+## 📧 Exemple 1 : Candidature Spontanée - Développeur Python
+
+**Contexte** : Candidature spontanée pour une startup tech spécialisée en SaaS
+
+```
+Objet : [Stage] Candidature spontanée pour un poste de Développeur Python - [Prénom Nom]
+
+Bonjour Madame, Monsieur,
+
+Actuellement étudiant en 3ème année d'école d'ingénieur à [Nom de l'école], spécialisé en informatique et systèmes d'information, je me permets de vous soumettre ma candidature pour un stage de 6 mois au sein de votre équipe en tant que Développeur Python.
+
+Passionné par le développement backend, j'ai acquis une solide expérience avec Python à travers plusieurs projets. J'ai notamment développé une API REST complète pour une application de gestion de projets, utilisant Django et PostgreSQL, qui est actuellement utilisée par plus de 50 utilisateurs. J'ai également contribué à un projet open-source sur GitHub, ce qui m'a permis de travailler avec des outils comme Docker, CI/CD, et les tests unitaires.
+
+Votre entreprise [Nom], que j'ai découverte à travers [source : LinkedIn, article, événement], m'a particulièrement impressionné par votre approche innovante de [domaine spécifique : ex: la gestion de données en temps réel]. Votre produit [Nom du produit] correspond parfaitement à mes centres d'intérêt en matière de développement d'applications scalables. Je suis convaincu que mon profil, alliant des compétences techniques solides et une forte motivation pour le travail en équipe, pourrait contribuer efficacement à vos projets.
+
+Je reste à votre disposition pour échanger plus en détail sur ma candidature lors d'un entretien. Vous pouvez me contacter par email à [ton email] ou par téléphone au [ton numéro] à votre convenance.
+
+Cordialement,
+[Prénom Nom]
+[Ton numéro de téléphone]
+[Ton email]
+[LinkedIn/GitHub si pertinent]
+```
+
+---
+
+## 📧 Exemple 2 : Réponse à une Offre - Développeur Full-Stack
+
+**Contexte** : Réponse à une offre publiée sur LinkedIn pour un stage de 6 mois
+
+```
+Objet : [Stage] Candidature pour l'offre Développeur Full-Stack - Réf. [NUMERO] - [Prénom Nom]
+
+Bonjour Madame [Nom du recruteur],
+
+Votre offre de stage pour un poste de Développeur Full-Stack, publiée sur LinkedIn le [date], a immédiatement retenu mon attention. Étudiant en Master 2 Informatique à [Nom de l'université], avec une spécialisation en développement web et mobile, je possède les compétences techniques que vous recherchez.
+
+J'ai une expérience pratique de plus de 2 ans avec le développement full-stack. Mon projet le plus récent, [Nom du projet], est une application web complète développée avec React pour le frontend et Node.js/Express pour le backend, avec une base de données MongoDB. J'ai également travaillé avec TypeScript, Redux pour la gestion d'état, et Jest pour les tests. Lors de mon stage chez [Nom de l'entreprise], j'ai contribué au développement d'une feature majeure qui a permis d'améliorer l'expérience utilisateur de 40%.
+
+Votre entreprise [Nom], connue pour son expertise en [domaine], représente pour moi une opportunité exceptionnelle de mettre en pratique mes compétences tout en apprenant de votre équipe expérimentée. Je suis particulièrement intéressé par votre stack technique mentionnée dans l'offre, notamment [technologie spécifique].
+
+Je me tiens à votre disposition pour un entretien afin de discuter de ma candidature plus en détail. Vous trouverez mon CV en pièce jointe.
+
+Cordialement,
+[Prénom Nom]
+[Ton numéro de téléphone]
+[Ton email]
+[LinkedIn/GitHub]
+```
+
+---
+
+## 📧 Exemple 3 : Candidature Spontanée - Robotique
+
+**Contexte** : Candidature pour un laboratoire de robotique
+
+```
+Objet : [Stage] Candidature spontanée pour un poste en Robotique Mobile - [Prénom Nom]
+
+Bonjour Monsieur [Nom],
+
+Actuellement en 2ème année de Master Robotique à [Nom de l'université], je me permets de vous contacter pour vous proposer ma candidature pour un stage au sein de votre laboratoire. Votre travail sur [projet spécifique du labo] m'a particulièrement inspiré et je serais ravi de pouvoir y contribuer.
+
+Spécialisé en robotique autonome, j'ai une expérience pratique avec ROS, la vision par ordinateur (OpenCV), et la programmation de microcontrôleurs (Arduino, STM32). Lors de mon projet de fin de licence, j'ai conçu et implémenté un robot autonome capable de naviguer dans un environnement inconnu en utilisant SLAM pour la cartographie et A* pour la planification de trajectoire. Ce projet m'a permis de développer des compétences en C++, en traitement d'images en temps réel, et en intégration de capteurs variés (LiDAR, caméras, encodeurs).
+
+Votre laboratoire, reconnu pour ses contributions significatives à [domaine de recherche], représente pour moi une opportunité idéale de mettre en pratique mes connaissances tout en apprenant de votre expertise. Je suis particulièrement intéressé par votre travail sur [sujet spécifique], que j'ai étudié dans le cadre de mon cours de [nom du cours].
+
+Je reste disponible pour discuter de ma candidature lors d'un entretien. Vous pouvez me joindre par email ou téléphone au [ton numéro].
+
+Cordialement,
+[Prénom Nom]
+[Ton numéro de téléphone]
+[Ton email]
+[LinkedIn/GitHub/Portfolio]
+```
+
+---
+
+## 📧 Exemple 4 : Candidature avec Recommandation
+
+**Contexte** : Candidature avec mention d'un contact dans l'entreprise
+
+```
+Objet : [Stage] Candidature pour un poste de Data Scientist - [Prénom Nom]
+
+Bonjour Monsieur [Nom],
+
+[Prénom du contact], que j'ai eu l'occasion de rencontrer lors de [événement/contexte], m'a suggéré de vous contacter pour un éventuel stage au sein de votre service Data Science.
+
+Étudiant en Master 2 Data Science à [Nom de l'université], j'ai développé une expertise en analyse de données, machine learning, et visualisation. Mon projet de recherche actuel porte sur [sujet du projet], où j'utilise Python, Pandas, scikit-learn, et TensorFlow pour développer des modèles prédictifs. J'ai également une expérience pratique avec les bases de données SQL et les outils de big data comme Spark.
+
+Votre entreprise [Nom], que je connais pour son travail innovant en [domaine], correspond parfaitement à mes aspirations professionnelles. Votre approche de [méthodologie/produit spécifique] m'intéresse particulièrement, car elle rejoint mes propres convictions sur [sujet].
+
+Je serais ravi d'échanger avec vous pour vous exposer plus en détail mes compétences et ma motivation. Je reste à votre disposition pour un entretien à votre convenance.
+
+Cordialement,
+[Prénom Nom]
+[Ton numéro de téléphone]
+[Ton email]
+[LinkedIn/GitHub]
+```
+
+---
+
+## 📧 Exemple 5 : Relance après Candidature
+
+**Contexte** : Relance 7 jours après l'envoi de la candidature initiale
+
+```
+Objet : Suite à ma candidature pour un stage en Développement Logiciel
+
+Bonjour Madame, Monsieur,
+
+Je me permets de vous recontacter concernant ma candidature envoyée le [date d'envoi] pour un stage en développement logiciel au sein de votre entreprise.
+
+Je comprends que vous recevez de nombreuses candidatures et je souhaitais simplement m'assurer que la mienne a bien été reçue et est en cours d'examen. Je reste très motivé à l'idée de rejoindre votre équipe et de contribuer à vos projets, notamment [mentionner un projet spécifique si possible].
+
+Je me tiens à votre disposition pour tout complément d'information et reste disponible pour un entretien à votre convenance.
+
+Cordialement,
+[Prénom Nom]
+[Ton numéro de téléphone]
+[Ton email]
+```
+
+---
+
+## 📧 Exemple 6 : Relance après Relance
+
+**Contexte** : Deuxième relance, 14 jours après la première
+
+```
+Objet : Suite à mes précédents échanges - Candidature pour [Poste]
+
+Bonjour Madame [Nom],
+
+Je fais suite à mon email du [date de la première relance] concernant ma candidature pour un stage en tant que [Poste] au sein de votre équipe.
+
+Je sais que les processus de recrutement peuvent prendre du temps, et je souhaitais simplement réitérer mon intérêt pour cette opportunité. Mon profil, combinant [compétence 1] et [compétence 2], correspond je pense aux besoins que vous avez exprimés dans votre offre.
+
+Je reste disponible pour un échange téléphonique ou une rencontre afin de vous exposer plus en détail ma motivation et mes compétences.
+
+Cordialement,
+[Prénom Nom]
+[Ton numéro de téléphone]
+[Ton email]
+```
+
+---
+
+## 📧 Exemple 7 : Réponse à un Email de Recruteur
+
+**Contexte** : Le recruteur demande des précisions sur un projet
+
+```
+Objet : Re: [Sujet de l'email du recruteur]
+
+Bonjour Madame [Nom],
+
+Merci pour votre retour et pour votre intérêt pour ma candidature. Concernant votre question sur mon projet [Nom du projet], il s'agissait effectivement d'une application [description brève] développée avec [technologies].
+
+Le principal défi que j'ai rencontré était [décrivez le défi], que j'ai résolu en [décrivez la solution]. Ce projet m'a permis de développer des compétences particulières en [compétences], et les résultats ont été [résultats concrets].
+
+Je reste à votre disposition pour en discuter plus en détail lors d'un entretien.
+
+Cordialement,
+[Prénom Nom]
+```
+
+---
+
+## 📧 Exemple 8 : Candidature pour une PME/Startup
+
+**Contexte** : Candidature pour une petite structure où tu veux montrer ta polyvalence
+
+```
+Objet : [Stage] Candidature polyvalente Développeur/DevOps - [Prénom Nom]
+
+Bonjour [Prénom du recruteur],
+
+Votre annonce sur [plateforme] pour un stage polyvalent au sein de votre équipe a retenu toute mon attention. Étudiant en [formation] à [école], je recherche précisément une expérience où je pourrais mettre à profit mes compétences variées en développement et en administration système.
+
+Au cours de mes études et projets personnels, j'ai eu l'opportunité de travailler sur l'ensemble de la stack technique : du développement frontend avec React au backend avec Node.js, en passant par le déploiement avec Docker et Kubernetes. J'ai notamment mis en place une infrastructure CI/CD complète pour un projet universitaire, ce qui m'a permis de comprendre les enjeux de la production et de la maintenance d'applications.
+
+Votre entreprise [Nom], par sa taille humaine et son approche agile, représente pour moi l'environnement idéal pour apprendre rapidement et contribuer activement. Je suis particulièrement attiré par votre produit [Nom], et je serais ravi de pouvoir apporter ma polyvalence à votre équipe.
+
+Je suis disponible pour un entretien afin de discuter de la manière dont je pourrais contribuer à vos projets. N'hésitez pas à me contacter par email ou téléphone.
+
+Cordialement,
+[Prénom Nom]
+[Ton numéro de téléphone]
+[Ton email]
+```
+
+---
+
+## 📧 Exemple 9 : Candidature avec Expérience Professionnelle
+
+**Contexte** : Tu as déjà une expérience professionnelle significative
+
+```
+Objet : [Stage] Candidature pour un poste de [POSTE] - [Prénom Nom]
+
+Bonjour Monsieur [Nom],
+
+Avec plus de [X] ans d'expérience en tant que [ancien poste] chez [ancienne entreprise], je me permets de vous soumettre ma candidature pour un stage au sein de votre équipe en tant que [POSTE]. Mon expérience professionnelle, combinée à ma formation actuelle en [formation] à [école], me permet d'apporter une perspective unique à vos projets.
+
+Lors de mon emploi chez [entreprise], j'ai été responsable de [description des missions], où j'ai développé des compétences en [compétences]. J'ai notamment [réalisation concrète avec résultats]. Mon retour aux études me permet maintenant d'approfondir mes connaissances en [domaine d'étude], que je souhaite mettre à profit dans le cadre de ce stage.
+
+Votre entreprise [Nom] m'intéresse particulièrement pour [raison spécifique]. Votre projet [Nom du projet] correspond parfaitement à mon expérience en [domaine] et à mes aspirations professionnelles.
+
+Je serais ravi d'échanger avec vous pour vous expliquer comment mon profil pourrait s'intégrer dans votre équipe. Je reste à votre disposition pour un entretien.
+
+Cordialement,
+[Prénom Nom]
+[Ton numéro de téléphone]
+[Ton email]
+[LinkedIn]
+```
+
+---
+
+## 📧 Exemple 10 : Candidature pour l'International
+
+**Contexte** : Candidature pour une entreprise à l'étranger (email en anglais)
+
+```
+Subject: [Internship] Application for [Position] Position - [Your Name]
+
+Dear [Recruiter's Name],
+
+I am currently a [Year] year student at [University Name], specializing in [Field of Study]. I am writing to express my interest in the [Position] internship opportunity at [Company Name] that I found on [Source].
+
+With a strong background in [Key Skills], I have developed several projects that demonstrate my abilities. Notably, I [describe a relevant project] using [technologies], which [result/impact]. Additionally, my internship at [Company] allowed me to gain practical experience in [skills], where I [specific achievement].
+
+I am particularly drawn to [Company Name] because of your innovative work in [specific field/technology]. Your project [Project Name] aligns perfectly with my academic background and professional interests. I am confident that my technical skills and enthusiasm would make me a valuable addition to your team.
+
+I am available for an interview at your earliest convenience. Please feel free to contact me by email or phone at [your phone number].
+
+Best regards,
+[Your Full Name]
+[Your Phone Number]
+[Your Email]
+[LinkedIn/GitHub]
+```
+
+---
+
+## ✅ Checklist de Vérification
+
+Avant d'envoyer un email généré par l'IA :
+
+1. **Personnalisation**
+   - [ ] Le nom de l'entreprise est correct
+   - [ ] Le poste visé est précis
+   - [ ] Les compétences mentionnées sont bien les miennes
+   - [ ] Les projets cités sont bien les miens
+
+2. **Précision**
+   - [ ] Pas d'informations inventées
+   - [ ] Toutes les dates sont correctes
+   - [ ] Tous les noms sont corrects
+
+3. **Style**
+   - [ ] Le ton est professionnel
+   - [ ] Les phrases sont courtes et claires
+   - [ ] Pas de fautes d'orthographe
+   - [ ] Pas de phrases génériques
+
+4. **Structure**
+   - [ ] L'objet est clair et précis
+   - [ ] La salutation est adaptée
+   - [ ] Les paragraphes sont bien structurés
+   - [ ] La conclusion propose un entretien
+   - [ ] La signature est complète
+
+---
+
+**Astuce** : Utilise ces exemples comme **inspiration**, mais **personnalise toujours** chaque email pour l'entreprise et le poste visé. Plus ton email sera spécifique, plus il aura de chances de retenir l'attention !

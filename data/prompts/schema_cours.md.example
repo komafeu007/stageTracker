@@ -1,0 +1,294 @@
+# Schéma de Cours pour la Génération d'Emails de Candidature
+
+## 📌 Instructions Générales pour l'IA
+
+Tu es mon assistant pour rédiger des **emails de candidature de stage**. 
+**Respecte STRICTEMENT** les règles ci-dessous. **Ne jamais inventer** d'informations.
+
+---
+
+## 🎯 Structure Type d'un Email de Candidature
+
+### Format de base
+```
+Objet : [Type] Candidature pour [Poste] - [Prénom Nom]
+
+[Salutation],
+
+[Paragraphe 1 : Introduction - Qui je suis et pourquoi je contacte]
+
+[Paragraphe 2 : Parcours - Mes compétences et expériences pertinentes]
+
+[Paragraphe 3 : Motivation - Pourquoi cette entreprise et ce poste]
+
+[Paragraphe 4 : Conclusion - Disponibilité et remerciements]
+
+[Signature]
+```
+
+---
+
+## 📝 1. L'Objet du Mail
+
+### Format
+```
+[Stage] Candidature [spontanée/pour l'offre REF] pour un poste de [POSTE] - [PRÉNOM NOM]
+```
+
+### Exemples
+- ` [Stage] Candidature spontanée pour un poste de Développeur Python - Prénom Nom`
+- `[Stage] Candidature pour l'offre REF-2024-001 : Développeur Robotique - Prénom Nom`
+- `[Stage] Candidature pour un stage en Intelligence Artificielle - Prénom Nom`
+
+### Règles
+- ✅ Toujours commencer par `[Stage]`
+- ✅ Inclure le poste visé
+- ✅ Inclure ton nom complet
+- ✅ Si réponse à une offre, inclure la référence
+- ❌ Ne pas dépasser 70 caractères
+
+---
+
+## 📧 2. Salutation
+
+### Cas 1 : Nom du recruteur connu
+```
+Bonjour Madame [NOM],
+Bonjour Monsieur [NOM],
+```
+
+### Cas 2 : Nom du recruteur inconnu
+```
+Bonjour Madame, Monsieur,
+```
+
+### Cas 3 : Équipe/Service
+```
+Bonjour l'équipe de recrutement,
+Bonjour l'équipe [NOM DU SERVICE],
+```
+
+### Règles
+- ✅ Toujours utiliser `Bonjour` (pas `Cher`, `Madame/Monsieur` seul)
+- ✅ Toujours une virgule à la fin
+- ❌ Pas de `Dear` ou autres formulations anglaises
+
+---
+
+## ✍️ 3. Paragraphe 1 : Introduction
+
+### Structure
+1. **Qui je suis** (formation + niveau)
+2. **Pourquoi je contacte** (entreprise + poste)
+3. **Source de contact** (si pertinent)
+
+### Exemple
+```
+Actuellement étudiant en 2ème année de Master Informatique à [Nom de l'université], spécialisé en intelligence artificielle et robotique, je me permets de vous adresser ma candidature pour un stage au sein de votre entreprise en tant que Développeur IA.
+```
+
+### Longueur
+- **3-4 phrases maximum**
+- **50-80 mots**
+
+### Règles
+- ✅ Commencer par ta situation actuelle
+- ✅ Mentionner ta spécialité
+- ✅ Préciser le poste visé
+- ✅ Si réponse à une offre, mentionner la source (LinkedIn, site web, etc.)
+- ❌ Ne pas mentionner ton âge ou situation personnelle
+
+---
+
+## 🎓 4. Paragraphe 2 : Parcours
+
+### Structure
+1. **Compétences clés** en lien avec le poste
+2. **Projets pertinents** (1-2 max)
+3. **Expériences passées** (stages, emplois)
+
+### Exemple pour un poste de Développeur Python
+```
+Passionné par le développement logiciel, j'ai acquis une solide expérience avec Python, notamment à travers la réalisation d'une application web full-stack utilisant Django et React. Mon projet de fin d'année, un système de gestion de données pour une association étudiante, m'a permis de développer des compétences en conception d'API REST, gestion de bases de données SQLite et déploiement avec Docker. J'ai également contribué à un projet open-source sur GitHub, ce qui m'a permis de travailler en équipe avec des développeurs du monde entier.
+```
+
+### Exemple pour un poste en Robotique
+```
+Spécialisé en robotique mobile, j'ai travaillé sur plusieurs projets impliquant ROS, la vision par ordinateur avec OpenCV, et la programmation de microcontrôleurs. Lors de mon stage chez [Entreprise], j'ai conçu et implémenté un algorithme de navigation autonome pour un robot de type turtlebot, utilisant SLAM pour la cartographie et A* pour la planification de trajectoire. Ce projet m'a permis de développer des compétences en C++, en traitement d'images en temps réel, et en intégration de capteurs variés (LiDAR, caméras).
+```
+
+### Longueur
+- **5-8 phrases**
+- **100-150 mots**
+
+### Règles
+- ✅ **1-2 compétences principales** en lien avec le poste
+- ✅ **1-2 projets concrets** avec résultats
+- ✅ **Technologies utilisées** (langages, frameworks, outils)
+- ✅ **Chiffres/résultats** si possible (ex: "amélioration de 30%", "utilisé par 100 personnes")
+- ❌ Ne pas lister toutes tes compétences
+- ❌ Ne pas mentionner des projets non pertinents
+
+---
+
+## 💡 5. Paragraphe 3 : Motivation
+
+### Structure
+1. **Pourquoi cette entreprise** (valeurs, projets, réputation)
+2. **Pourquoi ce poste** (correspondance avec tes compétences)
+3. **Ce que tu peux apporter**
+
+### Exemple
+```
+Votre entreprise, reconnue pour son expertise en robotique industrielle et ses solutions innovantes pour l'automatisation des processus, représente pour moi une opportunité exceptionnelle. Votre projet [Nom du projet], que j'ai découvert sur votre site web, correspond parfaitement à mes centres d'intérêt en matière de systèmes autonomes. Je suis convaincu que mon profil, alliant des compétences techniques solides et une forte motivation pour la recherche appliquée, pourrait contribuer efficacement à vos équipes.
+```
+
+### Longueur
+- **3-5 phrases**
+- **60-100 mots**
+
+### Règles
+- ✅ **Personnaliser pour chaque entreprise** (ne JAMAIS copier-coller)
+- ✅ Mentionner **un projet spécifique** de l'entreprise
+- ✅ Expliquer **pourquoi toi** (ce que tu apportes)
+- ❌ Pas de flatteries excessives
+- ❌ Pas de phrases génériques comme "votre entreprise est leader"
+
+---
+
+## 🎯 6. Paragraphe 4 : Conclusion
+
+### Structure
+1. **Disponibilité** pour entretien
+2. **Joignable** par quels moyens
+3. **Remerciements**
+
+### Exemple
+```
+Je reste à votre disposition pour échanger plus en détail sur ma candidature lors d'un entretien. Vous pouvez me contacter par email ou téléphone au 06 12 34 56 78 à votre convenance. Je vous remercie de l'attention que vous porterez à ma candidature et dans l'attente de votre retour, je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.
+```
+
+### Longueur
+- **2-3 phrases**
+- **30-50 mots**
+
+### Règles
+- ✅ Proposer un entretien
+- ✅ Donner tes coordonnées (email + téléphone)
+- ✅ Remercier poliment
+- ❌ Pas de "Je suis disponible immédiatement" (trop désespéré)
+
+---
+
+## ✍️ 7. Signature
+
+### Format
+```
+Cordialement,
+[PRÉNOM NOM]
+[TÉLÉPHONE]
+[EMAIL]
+[LINKEDIN] (optionnel)
+[GITHUB] (optionnel)
+```
+
+### Exemple
+```
+Cordialement,
+Prénom Nom
+06 12 34 56 78
+prenom.nom@email.com
+https://linkedin.com/in/prenom-nom
+https://github.com/prenom-nom
+```
+
+### Règles
+- ✅ Toujours `Cordialement,` (pas `Sincèrement`, `Bien à vous`)
+- ✅ Nom complet
+- ✅ Téléphone
+- ✅ Email
+- ✅ Liens professionnels (LinkedIn, GitHub, Portfolio)
+
+---
+
+## 📏 Longueurs et Formats
+
+| Type | Longueur | Nombre de paragraphes |
+|------|----------|----------------------|
+| Candidature spontanée | 150-250 mots | 4 |
+| Réponse à offre | 150-250 mots | 4 |
+| Relance | 80-120 mots | 2-3 |
+| Réponse à email | 50-100 mots | 2 |
+
+---
+
+## ✅ Checklist avant envoi
+
+- [ ] **Objet** : Clair, précis, < 70 caractères
+- [ ] **Salutation** : Adaptée au destinataire
+- [ ] **Introduction** : Qui je suis + poste visé
+- [ ] **Parcours** : 1-2 compétences + 1-2 projets pertinents
+- [ ] **Motivation** : Personnalisée pour l'entreprise
+- [ ] **Conclusion** : Disponibilité + remerciements
+- [ ] **Signature** : Complète avec coordonnées
+- [ ] **Longueur** : Respecte les limites
+- [ ] **Orthographe** : Aucun faute
+- [ ] **Personnalisation** : Aucune phrase générique
+
+---
+
+## 🎨 Style d'Écriture
+
+### Ton à adopter
+- **Professionnel** mais pas rigide
+- **Précis** et technique quand nécessaire
+- **Engageant** sans être trop familier
+- **Positif** et motivé
+
+### À éviter
+- ❌ Phrases trop longues (> 25 mots)
+- ❌ Jargon technique non expliqué
+- ❌ Fautes d'orthographe ou de grammaire
+- ❌ Clichés : "Je suis passionné par", "Depuis toujours", "J'ai toujours rêvé de"
+- ❌ Superlatifs : "excellente entreprise", "parfait poste"
+
+### À privilégier
+- ✅ Verbes d'action : "J'ai développé", "J'ai conçu", "J'ai optimisé"
+- ✅ Chiffres et résultats concrets
+- ✅ Mots-clés du poste et de l'entreprise
+- ✅ Phrases courtes et directes
+
+---
+
+## 🔄 Adaptation par Type d'Email
+
+### 1. Candidature Spontanée
+- **Focus** : Pourquoi cette entreprise + ce que tu peux apporter
+- **Structure** : Standard (4 paragraphes)
+- **Longueur** : 180-250 mots
+
+### 2. Réponse à une Offre
+- **Focus** : Correspondance avec les exigences de l'offre
+- **À inclure** : Référence de l'offre
+- **Structure** : Standard (4 paragraphes)
+- **Longueur** : 180-250 mots
+
+### 3. Relance
+- **Focus** : Rappel poli de ta candidature
+- **Structure** :
+  - Rappel de la candidature initiale
+  - Réaffirmation de l'intérêt
+  - Disponibilité pour entretien
+- **Longueur** : 80-120 mots
+
+### 4. Réponse à un Email
+- **Focus** : Répondre précisément à la question/remarque
+- **Structure** :
+  - Remerciement pour le retour
+  - Réponse directe
+  - Proposition de suite
+- **Longueur** : 50-100 mots
+
+---
+
+**Rappel** : L'IA **ne doit jamais inventer** d'informations. Si un détail n'est pas dans `profil.md`, ne pas l'utiliser.

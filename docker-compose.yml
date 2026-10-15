@@ -1,0 +1,27 @@
+services:
+  stage-tracker:
+    build: .
+    container_name: stage-tracker
+    restart: unless-stopped
+    # Réseau hôte : le conteneur partage la loopback de la machine, ce qui permet de
+    # joindre Ollama qui n'écoute que sur 127.0.0.1 (sinon il faudrait le lier à 0.0.0.0).
+    network_mode: host
+    env_file: .env
+    user: "${PUID:-1000}:${PGID:-1000}"  # évite des fichiers root dans ./data
+    environment:
+      TZ: Europe/Paris
+      # .env contient DATA_DIR=./data (utile en local) : on force les chemins
+      # du conteneur, sinon le dossier n'existe pas dans l'image.
+      DATA_DIR: /data
+      SECRETS_DIR: /secrets
+      # En réseau hôte, « localhost » est bien la machine : Ollama est joignable tel quel.
+      OLLAMA_HOST: http://127.0.0.1:11434
+      # Écoute de l'app (réseau hôte => c'est le port de la machine).
+      APP_BIND: "${APP_BIND:-127.0.0.1}"
+      APP_PORT: "${APP_PORT:-8000}"
+    # En réseau hôte, le mapping `ports:` est ignoré : on règle l'écoute ici.
+    command: >
+      sh -c "uvicorn app.main:app --host $${APP_BIND} --port $${APP_PORT}"
+    volumes:
+      - ./data:/data          # base SQLite, CV actif, jeton Gmail, prompts : tout est ici
+      - ./secrets:/secrets:ro # credentials.json (Google Cloud), en lecture seule
