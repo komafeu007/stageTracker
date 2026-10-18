@@ -25,11 +25,10 @@ machine, sauf ce que tu envoies volontairement à Google (Gmail, Gemini).
 - [Personnaliser les prompts (ton profil)](#personnaliser-les-prompts-ton-profil)
 - [Premier lancement](#premier-lancement)
 - [Utilisation](#utilisation)
-- [Structure du projet](#structure-du-projet)
-- [Tests et qualité de code](#tests-et-qualité-de-code)
 - [Sauvegarder, réinstaller, changer de machine](#sauvegarder-réinstaller-changer-de-machine)
 - [Dépannage](#dépannage)
 - [Sécurité et confidentialité](#sécurité-et-confidentialité)
+- [Fonctionnement détaillé (technique)](docs/fonctionnement.md)
 - [Licence](#licence)
 
 ---
@@ -62,31 +61,13 @@ machine, sauf ce que tu envoies volontairement à Google (Gmail, Gemini).
 
 ## Comment ça marche
 
-```
-Fil Gmail
-   │
-   ▼
-1. Pré-filtre par mots-clés (GMAIL_KEYWORDS)  → les mails hors sujet sont écartés sans IA
-   │
-   ▼
-2. Entreprise déjà connue ? (même adresse ou même domaine)  → rattachement direct
-   │
-   ▼
-3. Classification par Ollama : pertinent ? quelle entreprise ? refus / positif ? résumé ? secteur ?
-   │
-   ▼
-4. Sinon repli : entreprise déduite du domaine de l'adresse
-```
+Chaque fil Gmail passe par un **pré-filtre par mots-clés**, un rattachement à une **entreprise
+déjà connue**, puis une classification par une **IA locale** (Ollama) qui devient le nom de
+l'entreprise, l'issue (refus / positif), un résumé et le secteur d'activité. La **rédaction** des
+mails (candidature, relance, réponse) est confiée à **Gemini**, à ta demande.
 
-**Répartition des rôles (à ne pas inverser)** :
-
-| Rôle | Service | Fichier |
-|------|---------|---------|
-| Classer les fils | **Ollama** (local) | `app/local_ai.py` |
-| Rédiger les e-mails | **Gemini** (API Google) | `app/gemini_client.py` |
-
-Si Ollama est indisponible, la synchronisation continue (filtrage par mots-clés + nom
-d'entreprise déduit du domaine) ; la rédaction, elle, nécessite Gemini.
+> 👉 Détails techniques — pipeline complet, classification, rédaction, relances, base de données
+> et sécurité : **[`docs/fonctionnement.md`](docs/fonctionnement.md)**.
 
 ---
 
@@ -338,71 +319,6 @@ corbeille — réversible.
 
 ---
 
-## Structure du projet
-
-```
-stageTracker/
-├── app/
-│   ├── main.py            # application FastAPI (lifespan, routeurs, sécurité)
-│   ├── api/               # routes HTTP, un module par domaine
-│   │   ├── system.py      # /, /api/health, /api/status, /api/tokens
-│   │   ├── auth.py        # OAuth Gmail, /api/sync
-│   │   ├── companies.py   # entreprises et fils
-│   │   ├── mail.py        # brouillons et envoi
-│   │   ├── messages.py    # réaffectation manuelle d'un mail
-│   │   ├── cv.py          # import / téléchargement du CV
-│   │   ├── notifications.py
-│   │   └── deps.py        # modèles de requête + helpers partagés
-│   ├── config.py          # configuration (variables d'environnement)
-│   ├── constants.py       # statuts et types métier partagés
-│   ├── db.py              # schéma SQLite + helpers
-│   ├── sync.py            # pipeline Gmail → SQLite
-│   ├── gmail_client.py    # client Gmail (OAuth, lecture, envoi)
-│   ├── services.py        # statuts, relances, notifications, brouillons
-│   ├── local_ai.py        # classification locale (Ollama)
-│   ├── gemini_client.py   # rédaction (Gemini)
-│   ├── textutils.py       # utilitaires texte (HTML, adresses, domaines)
-│   ├── security.py        # mot de passe optionnel + anti-CSRF
-│   └── static/index.html  # interface (Vue 3 + Tailwind via CDN)
-├── data/                  # ⚠️ local, non versionné (sauf modèles de prompts)
-│   ├── stage_tracker.db   # base SQLite
-│   ├── token.json         # jeton Gmail
-│   ├── cv_active.pdf      # CV importé
-│   └── prompts/           # *.md.example versionnés, *.md locaux
-├── secrets/               # ⚠️ local, non versionné
-│   └── credentials.json   # identifiant OAuth Google Cloud
-├── tests/                 # tests hors-ligne (unittest)
-├── .env.example           # modèle de configuration
-├── docker-compose.yml     # exécution en conteneur
-├── Dockerfile
-├── pyproject.toml         # configuration ruff (conventions de code)
-├── requirements.txt
-└── requirements-dev.txt   # outils de développement (ruff)
-```
-
----
-
-## Tests et qualité de code
-
-Les tests sont **hors-ligne** : Gmail, Ollama et Gemini sont simulés.
-
-```bash
-python -m unittest discover -v
-```
-
-Conventions de code (ruff) :
-
-```bash
-pip install -r requirements-dev.txt
-ruff check .          # vérifie
-ruff check --fix .    # corrige ce qui peut l'être
-```
-
-Conventions : code et identifiants en anglais, commentaires et textes utilisateur en
-français, lignes ≤ 120 caractères, `snake_case` / `PascalCase` / `UPPER_CASE`.
-
----
-
 ## Sauvegarder, réinstaller, changer de machine
 
 Tout ce qui est **personnel** vit hors de Git. Avant de supprimer le dossier du projet,
@@ -483,15 +399,10 @@ rm data/stage_tracker.db
 - 🔒 **Secrets ignorés par Git** : `.env`, `secrets/`, `data/` sont dans `.gitignore`.
 - 🔒 **Profil local** : seuls les modèles `*.md.example` sont versionnés ; ton `profil.md`
   rempli ne quitte pas ta machine.
-- 🛡️ **Anti-CSRF** : toute requête non-`GET` doit porter l'en-tête
-  `X-Requested-With: stagetracker`.
 - 🔑 **Mot de passe optionnel** : `APP_PASSWORD` protège l'interface si tu l'exposes.
-- 🩺 **Seule exception au mot de passe** : `/api/health`, la sonde du conteneur — elle ne
-  renvoie que `{"ok": true}`.
-- 🧼 **HTML nettoyé avant envoi** : le corps rédigé est filtré (`sanitize_html`) ; seules les
-  balises de mise en forme simples passent.
-- 🌐 **Site de l'entreprise lu avec prudence** : pour personnaliser un mail, seules les adresses
-  publiques `http(s)` sont récupérées ; `localhost` et les IP privées sont ignorées.
+- 🛡️ **Protections actives** : anti-CSRF, HTML nettoyé avant envoi, sites locaux ignorés.
+
+> 👉 Détail des protections : **[`docs/fonctionnement.md`](docs/fonctionnement.md)**.
 
 > ⚠️ Si une clé a pu être exposée (commit, capture, dépôt public), **révoque-la** :
 > - Google Cloud → *Clients* → supprime/régénère le client OAuth ;

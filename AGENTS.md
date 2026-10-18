@@ -85,6 +85,9 @@ threads with a **local** model (Ollama), and drafts internship applications/foll
   entre `/auth/login` et `/auth/callback`), thread fetch/parse, MIME build + send.
 - `app/textutils.py` — HTML/text cleanup, address/domain helpers.
 - `app/static/index.html` — entire frontend; Vue/Tailwind load from CDNs, so the browser needs internet.
+- `README.md` — user-facing notice (install, `.env`, usage, troubleshooting). `docs/fonctionnement.md`
+  — technical internals (pipeline, AI split, follow-up rules, DB tables, security). Keep both in
+  sync with the code; internals go in `docs/`, not the README.
 
 ## Domain notes
 
