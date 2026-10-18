@@ -27,7 +27,7 @@ def add_company(body: CompanyIn):
         if dup:
             where = " (elle est dans la corbeille : restaure-la)" if dup["status"] == IGNORED else ""
             raise HTTPException(409, f"Cette entreprise existe déjà{where}.")
-        company_id = services.create_company(db, name, body.website, email)
+        company_id = services.create_company(db, name, body.website, email, sector=body.sector)
     return services.get_company_dict(company_id)
 
 
@@ -39,6 +39,7 @@ def patch_company(company_id: int, body: CompanyPatch):
         if row is None:
             raise HTTPException(404, "Entreprise introuvable.")
         name, website, email = row["name"], row["website"], row["email"]
+        sector = row["sector"]
         status, manual = row["status"], row["status_manual"]
 
         if "name" in fields:
@@ -51,15 +52,17 @@ def patch_company(company_id: int, body: CompanyPatch):
             email = (fields["email"] or "").strip().lower() or None
             if email and not valid_email(email):
                 raise HTTPException(400, "Adresse e-mail invalide.")
+        if "sector" in fields:
+            sector = (fields["sector"] or "").strip() or None
         if "status" in fields:
             if fields["status"] not in FORCEABLE_STATUSES:
                 raise HTTPException(400, "Statut inconnu.")
             status, manual = fields["status"], 1  # contrôle manuel : forcé jusqu'au prochain message
 
         db.execute(
-            "UPDATE company SET name = ?, website = ?, email = ?, domain = ?, status = ?, status_manual = ? "
-            "WHERE id = ?",
-            (name, website, email, services.compute_domain(website, email), status, manual, company_id),
+            "UPDATE company SET name = ?, website = ?, email = ?, domain = ?, sector = ?, "
+            "status = ?, status_manual = ? WHERE id = ?",
+            (name, website, email, services.compute_domain(website, email), sector, status, manual, company_id),
         )
     return services.get_company_dict(company_id)
 

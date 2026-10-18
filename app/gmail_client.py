@@ -72,6 +72,7 @@ def _save_pending() -> None:
     try:
         _pending_file().parent.mkdir(parents=True, exist_ok=True)
         _pending_file().write_text(json.dumps(_pending_flows), encoding="utf-8")
+        os.chmod(_pending_file(), 0o600)  # contient le vérificateur PKCE : lisible par le seul propriétaire
     except OSError:
         pass  # au pire, on retombe sur l'état en mémoire (comme avant)
 

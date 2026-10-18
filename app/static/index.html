@@ -56,6 +56,18 @@
     <!-- ===================== COLONNE GAUCHE ===================== -->
     <aside class="flex flex-col gap-4 min-h-0 lg:h-full">
 
+      <!-- Filtre par secteur d'activité -->
+      <div class="shrink-0 bg-panel rounded-full px-4 py-2 flex items-center gap-2">
+        <label for="sector-filter" class="shrink-0 text-sm font-bold">Secteur</label>
+        <select id="sector-filter" v-model="sectorFilter"
+                class="min-w-0 flex-1 rounded-full bg-white px-3 py-1.5 text-sm font-semibold border-0">
+          <option value="">Tous</option>
+          <option v-for="s in sectorOptions" :key="s" :value="s">{{ s }}</option>
+        </select>
+        <button v-if="sectorFilter" @click="sectorFilter = ''" title="Retirer le filtre" aria-label="Retirer le filtre"
+                class="shrink-0 size-7 rounded-full bg-white/70 hover:bg-white grid place-items-center font-extrabold">×</button>
+      </div>
+
       <!-- Candidatures en cours -->
       <section class="bg-panel rounded-panel flex flex-col min-h-[18rem] lg:min-h-0 lg:flex-[1.15] overflow-hidden">
         <header class="flex items-center justify-between gap-2 px-6 pt-5 pb-2">
@@ -67,23 +79,30 @@
         </header>
 
         <ul class="flex-1 min-h-0 overflow-y-auto scroll-thin px-3 pb-2 space-y-2.5">
-          <li v-for="c in (showTrash ? companies.trash : companies.active)" :key="c.id">
+          <li v-for="c in visibleCompanies" :key="c.id">
             <button v-if="!showTrash" @click="selectCompany(c)"
                     :class="['w-full flex items-center justify-between gap-3 rounded-full px-5 py-3.5 text-left transition-colors',
                              selectedId === c.id ? 'bg-lilac ring-2 ring-ink' : 'bg-lilac-soft hover:bg-lilac']">
-              <span class="text-lg font-extrabold leading-tight truncate">{{ c.name }}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-lg font-extrabold leading-tight truncate">{{ c.name }}</span>
+                <span v-if="c.sector" :class="['inline-block mt-0.5 text-[11px] font-bold rounded-full px-2 py-0.5', sectorCls(c.sector)]">{{ c.sector }}</span>
+              </span>
               <span :class="['shrink-0 text-xs font-bold rounded-full px-2.5 py-1', STATUS[c.status]?.cls]">
                 {{ STATUS[c.status]?.label || c.status }}
               </span>
             </button>
             <div v-else class="flex items-center justify-between gap-3 rounded-full bg-white/60 px-5 py-3">
-              <span class="font-bold truncate">{{ c.name }}</span>
-              <button @click="restoreCompany(c)" class="text-sm font-bold rounded-full bg-ink text-white px-3 py-1">Restaurer</button>
+              <span class="min-w-0 flex-1">
+                <span class="block font-bold truncate">{{ c.name }}</span>
+                <span v-if="c.sector" :class="['inline-block mt-0.5 text-[11px] font-bold rounded-full px-2 py-0.5', sectorCls(c.sector)]">{{ c.sector }}</span>
+              </span>
+              <button @click="restoreCompany(c)" class="shrink-0 text-sm font-bold rounded-full bg-ink text-white px-3 py-1">Restaurer</button>
             </div>
           </li>
-          <li v-if="!(showTrash ? companies.trash : companies.active).length"
+          <li v-if="!visibleCompanies.length"
               class="px-4 py-6 text-center text-sm text-slate-700">
-            <template v-if="showTrash">La corbeille est vide.</template>
+            <template v-if="sectorFilter">Aucune entreprise dans ce secteur.</template>
+            <template v-else-if="showTrash">La corbeille est vide.</template>
             <template v-else-if="status.sync.running">Import de ta boîte Gmail en cours…</template>
             <template v-else-if="!status.gmail_connected">Connecte Gmail pour importer tes candidatures.</template>
             <template v-else>Aucune candidature pour l'instant. Envoie ta première candidature depuis la liste du bas.</template>
@@ -116,16 +135,18 @@
           </button>
         </header>
         <ul class="flex-1 min-h-0 overflow-y-auto scroll-thin px-3 pb-3 space-y-2">
-          <li v-for="c in companies.prospects" :key="c.id">
+          <li v-for="c in filteredProspects" :key="c.id">
             <button @click="selectCompany(c)"
                     :class="['w-full rounded-3xl px-5 py-3 text-left transition-colors',
                              selectedId === c.id ? 'bg-white ring-2 ring-ink' : 'bg-white/60 hover:bg-white']">
               <span class="block font-bold truncate">{{ c.name }}</span>
               <span class="block text-xs text-slate-600 truncate">{{ c.email || c.website || 'Pas d\'adresse renseignée' }}</span>
+              <span v-if="c.sector" :class="['inline-block mt-1 text-[11px] font-bold rounded-full px-2 py-0.5', sectorCls(c.sector)]">{{ c.sector }}</span>
             </button>
           </li>
-          <li v-if="!companies.prospects.length" class="px-4 py-6 text-center text-sm text-slate-700">
-            Ajoute une entreprise avec le bouton +, puis clique dessus : l'IA prépare ton e-mail.
+          <li v-if="!filteredProspects.length" class="px-4 py-6 text-center text-sm text-slate-700">
+            <template v-if="sectorFilter">Aucune entreprise dans ce secteur.</template>
+            <template v-else>Ajoute une entreprise avec le bouton +, puis clique dessus : l'IA prépare ton e-mail.</template>
           </li>
         </ul>
       </section>
@@ -229,6 +250,7 @@
                 </button>
               </h2>
               <p class="text-xs text-slate-700 truncate">
+                <span v-if="current.sector" :class="['inline-block align-middle mr-2 text-[11px] font-bold rounded-full px-2 py-0.5', sectorCls(current.sector)]">{{ current.sector }}</span>
                 <span v-if="current.email">{{ current.email }}</span>
                 <a v-if="current.website" :href="siteUrl(current.website)" target="_blank" rel="noopener" class="underline ml-2">{{ current.website }}</a>
                 <span v-if="current.summary" class="ml-2 italic">{{ current.summary }}</span>
@@ -300,6 +322,16 @@
                       class="rounded-full bg-slate-100 hover:bg-slate-200 disabled:opacity-50 px-3 py-1.5 text-sm font-bold">Répondre</button>
               <button v-if="current.stored_status === 'prospect'" @click="generateDraft('application')" :disabled="generating"
                       class="rounded-full bg-lilac hover:bg-lilac-soft disabled:opacity-50 px-3 py-1.5 text-sm font-bold">Régénérer avec l'IA</button>
+              <button v-if="showReplyPanel" @click="correctSpelling" :disabled="generating || correcting"
+                      title="Corrige uniquement l'orthographe, sans rien réécrire"
+                      class="rounded-full bg-white ring-1 ring-inset ring-ink/20 hover:bg-slate-100 disabled:opacity-50 px-3 py-1.5 text-sm font-bold">
+                {{ correcting ? 'Correction…' : 'Corriger l\'orthographe' }}
+              </button>
+              <button v-if="showReplyPanel" @click="openParagraphs" :disabled="generating || correcting"
+                      title="Réécrire un paragraphe à la fois"
+                      class="rounded-full bg-white ring-1 ring-inset ring-ink/20 hover:bg-slate-100 disabled:opacity-50 px-3 py-1.5 text-sm font-bold">
+                Réviser un paragraphe
+              </button>
             </div>
 
             <div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 px-5 pt-2 text-sm">
@@ -317,13 +349,15 @@
             </div>
 
             <!-- squelette pendant la réflexion de l'IA -->
-            <div v-if="generating" class="flex-1 min-h-0 px-5 py-3 space-y-2.5" aria-busy="true" aria-live="polite">
-              <p class="text-sm font-semibold text-slate-600">L'IA rédige ton e-mail…</p>
+            <div v-if="generating || correcting" class="flex-1 min-h-0 px-5 py-3 space-y-2.5" aria-busy="true" aria-live="polite">
+              <p class="text-sm font-semibold text-slate-600">
+                {{ correcting ? 'Correction de l\'orthographe…' : 'L\'IA rédige ton e-mail…' }}
+              </p>
               <div class="skeleton h-3.5 w-11/12"></div><div class="skeleton h-3.5 w-full"></div>
               <div class="skeleton h-3.5 w-9/12"></div><div class="skeleton h-3.5 w-10/12"></div>
               <div class="skeleton h-3.5 w-6/12"></div>
             </div>
-            <div v-show="!generating && showReplyPanel" ref="editorEl" class="editor flex-1 min-h-0 overflow-y-auto scroll-thin px-5 py-3 text-sm leading-relaxed"
+            <div v-show="!generating && !correcting && showReplyPanel" ref="editorEl" class="editor flex-1 min-h-0 overflow-y-auto scroll-thin px-5 py-3 text-sm leading-relaxed"
                  contenteditable="true" role="textbox" aria-multiline="true" aria-label="Corps de l'e-mail"
                  data-placeholder="Écris ton message ici, ou demande à l'IA de le rédiger."
                  @input="onEditorInput"></div>
@@ -377,13 +411,20 @@
 
   <!-- ===================== MODALE ajout / modification ===================== -->
   <div v-if="modal.open" class="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" @click.self="modal.open = false">
-    <form @submit.prevent="submitModal" class="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <form @submit.prevent="submitModal" class="w-full max-w-md max-h-[90vh] overflow-y-auto scroll-thin bg-white rounded-3xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <h3 id="modal-title" class="text-xl font-extrabold">{{ modal.mode === 'add' ? 'Ajouter une entreprise à contacter' : 'Modifier l\'entreprise' }}</h3>
       <label class="block text-sm font-semibold">Nom de l'entreprise
         <input v-model="modal.form.name" required ref="modalName" class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
       </label>
       <label class="block text-sm font-semibold">Site web
         <input v-model="modal.form.website" placeholder="www.exemple.fr" class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+      </label>
+      <label class="block text-sm font-semibold">Secteur / ce que fait l'entreprise
+        <input v-model="modal.form.sector" list="sector-list" placeholder="ex. Robotique, Vision / Perception, Développement…"
+               class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+        <datalist id="sector-list">
+          <option v-for="s in sectorOptions" :key="s" :value="s"></option>
+        </datalist>
       </label>
       <label class="block text-sm font-semibold">E-mail de contact
         <input v-model="modal.form.email" type="email" placeholder="recrutement@exemple.fr" class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
@@ -429,6 +470,33 @@
     </div>
   </div>
 
+  <!-- ===================== MODALE réviser un paragraphe ===================== -->
+  <div v-if="paragraph.open" class="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" @click.self="paragraph.open = false">
+    <div class="w-full max-w-lg max-h-[90vh] overflow-y-auto scroll-thin bg-white rounded-3xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="paragraph-title">
+      <h3 id="paragraph-title" class="text-xl font-extrabold">Réviser un paragraphe</h3>
+      <p class="text-sm text-slate-600">Choisis un paragraphe : l'IA en propose une autre version sans toucher aux autres.</p>
+      <label class="block text-sm font-semibold">Consigne (optionnel)
+        <input v-model="paragraph.instruction" placeholder="ex. plus court, autre exemple, plus simple…"
+               class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+      </label>
+      <ol class="space-y-2">
+        <li v-for="(p, i) in paragraph.items" :key="i" class="flex items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+          <span class="shrink-0 font-extrabold text-slate-500">{{ i + 1 }}</span>
+          <span class="min-w-0 flex-1 text-sm text-slate-700 line-clamp-3 whitespace-pre-wrap break-words">{{ p || '(paragraphe vide)' }}</span>
+          <button @click="rewriteParagraph(i)" :disabled="paragraph.busy >= 0"
+                  class="shrink-0 rounded-full bg-ink text-white font-bold text-xs px-3 py-1.5 disabled:opacity-40">
+            {{ paragraph.busy === i ? '…' : 'Autre version' }}
+          </button>
+        </li>
+        <li v-if="!paragraph.items.length" class="text-sm text-slate-600 px-1">Aucun paragraphe à réviser.</li>
+      </ol>
+      <p v-if="paragraph.error" class="text-sm font-semibold text-red-700">{{ paragraph.error }}</p>
+      <div class="flex justify-end">
+        <button @click="paragraph.open = false" class="rounded-full px-4 py-2 font-semibold hover:bg-slate-100">Fermer</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===================== TOAST ===================== -->
   <div v-if="toast.text" role="status" aria-live="polite"
        :class="['fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] max-w-[90vw] rounded-full px-5 py-3 text-sm font-bold shadow-xl',
@@ -469,6 +537,7 @@ createApp({
     // ---------- état global ----------
     const status = reactive({
       gmail_connected: false, needs_reauth: false, has_client_secret: true, ai_enabled: false,
+      sectors: [],
       cv: { exists: false }, sync: { running: false }, tokens: { month_tokens: 0, budget: 1, percent: 0, month_requests: 0, today_requests: 0, model: '' },
     });
     const companies = reactive({ active: [], prospects: [], trash: [] });
@@ -476,6 +545,33 @@ createApp({
     const nextFollowup = ref(null);
     const showTrash = ref(false);
     const showNotifs = ref(false);
+    const sectorFilter = ref('');
+
+    // ---------- secteur d'activité (pour retrouver ses entreprises) ----------
+    const sectorOf = (c) => (c.sector || '').trim();
+    const matchesSector = (c) => !sectorFilter.value || sectorOf(c) === sectorFilter.value;
+    const visibleCompanies = computed(() =>
+      (showTrash.value ? companies.trash : companies.active).filter(matchesSector));
+    const filteredProspects = computed(() => companies.prospects.filter(matchesSector));
+    const sectorOptions = computed(() => {
+      const present = [...companies.active, ...companies.prospects, ...companies.trash].map(sectorOf).filter(Boolean);
+      return [...new Set([...status.sectors, ...present])];
+    });
+    const SECTOR_CLS = {
+      'Développement logiciel': 'bg-sky-200 text-sky-950',
+      'Web / Full-stack': 'bg-indigo-200 text-indigo-950',
+      'Mobile': 'bg-cyan-200 text-cyan-950',
+      'Robotique': 'bg-orange-200 text-orange-950',
+      'Vision / Perception': 'bg-violet-200 text-violet-950',
+      'IA / Data': 'bg-fuchsia-200 text-fuchsia-950',
+      'Systèmes embarqués / IoT': 'bg-teal-200 text-teal-950',
+      'Réseau / Infrastructure': 'bg-emerald-200 text-emerald-950',
+      'Cybersécurité': 'bg-red-200 text-red-950',
+      'Cloud / DevOps': 'bg-amber-200 text-amber-950',
+      'Jeux vidéo': 'bg-pink-200 text-pink-950',
+      'Recherche / Labo': 'bg-slate-300 text-slate-900',
+    };
+    const sectorCls = (s) => SECTOR_CLS[s] || 'bg-white/80 text-slate-800';
     const toast = reactive({ text: '', error: false });
 
     // ---------- sélection / conversation ----------
@@ -484,6 +580,7 @@ createApp({
     const messages = ref([]);
     const loadingThread = ref(false);
     const generating = ref(false);
+    const correcting = ref(false);
     const sending = ref(false);
     const draftExists = ref(false);
     const editor = reactive({ kind: '', to: '', subject: '' });
@@ -499,7 +596,7 @@ createApp({
     const uploadingCv = ref(false);
 
     // ---------- modale ----------
-    const modal = reactive({ open: false, mode: 'add', form: { name: '', website: '', email: '' }, error: '' });
+    const modal = reactive({ open: false, mode: 'add', form: { name: '', website: '', email: '', sector: '' }, error: '' });
     const modalName = ref(null);
 
     // ---------- déplacer un mail / renommer l'entreprise ----------
@@ -513,6 +610,9 @@ createApp({
       const all = [...companies.active, ...companies.prospects];
       return q ? all.filter((c) => c.name.toLowerCase().includes(q)) : all;
     });
+
+    // ---------- réviser un paragraphe ----------
+    const paragraph = reactive({ open: false, items: [], instruction: '', busy: -1, error: '' });
 
     const toolbar = [
       { cmd: 'bold', title: 'Gras', label: '<b>G</b>' },
@@ -624,6 +724,7 @@ createApp({
       extraFiles.value = [];
       loadingThread.value = true;
       generating.value = false;
+      correcting.value = false;
       try {
         const data = await api(`/api/companies/${c.id}/thread`);
         if (token !== selectToken) return;
@@ -669,6 +770,58 @@ createApp({
         await nextTick();
         editorEl.value && editorEl.value.focus();
       } catch (e) { notify(e.message, true); }
+    }
+
+    // Corrige uniquement l'orthographe du message en cours (aucune réécriture du contenu).
+    async function correctSpelling() {
+      if (!current.value) return;
+      const text = editorText();
+      if (!text) return notify('Écris d\'abord ton message, puis lance la correction.', true);
+      correcting.value = true;
+      try {
+        const res = await api(`/api/companies/${current.value.id}/draft/correct`, { method: 'POST', body: { text } });
+        setEditorHtml(res.body_html);
+        draftExists.value = true;
+        await saveDraft();
+        notify('Orthographe corrigée.');
+      } catch (e) { notify(e.message, true); }
+      finally { correcting.value = false; }
+    }
+
+    // Révision paragraphe par paragraphe : l'IA propose une autre version d'un seul paragraphe.
+    function editorParagraphs() {
+      return editorEl.value ? Array.from(editorEl.value.children).map((el) => el.innerText.trim()) : [];
+    }
+    function openParagraphs() {
+      if (!editorEl.value) return;
+      paragraph.items = editorParagraphs();
+      paragraph.instruction = '';
+      paragraph.error = '';
+      paragraph.busy = -1;
+      paragraph.open = true;
+    }
+    async function rewriteParagraph(i) {
+      if (!current.value || !editorEl.value) return;
+      const list = editorParagraphs();
+      if (!list.length) return;
+      paragraph.busy = i;
+      paragraph.error = '';
+      try {
+        const res = await api(`/api/companies/${current.value.id}/draft/paragraph`, {
+          method: 'POST',
+          body: {
+            kind: editor.kind || (current.value.stored_status === 'prospect' ? 'application' : 'reply'),
+            paragraphs: list, index: i, instruction: paragraph.instruction,
+          },
+        });
+        const children = Array.from(editorEl.value.children);
+        if (children[i]) children[i].outerHTML = res.paragraph_html;
+        paragraph.items = editorParagraphs();
+        draftExists.value = true;
+        await saveDraft();
+        notify('Paragraphe remplacé.');
+      } catch (e) { paragraph.error = e.message; }
+      finally { paragraph.busy = -1; }
     }
 
     async function prepareFollowup(companyId) {
@@ -725,8 +878,8 @@ createApp({
     function openModal(mode) {
       modal.mode = mode; modal.error = '';
       modal.form = mode === 'edit' && current.value
-        ? { name: current.value.name, website: current.value.website || '', email: current.value.email || '' }
-        : { name: '', website: '', email: '' };
+        ? { name: current.value.name, website: current.value.website || '', email: current.value.email || '', sector: current.value.sector || '' }
+        : { name: '', website: '', email: '', sector: '' };
       modal.open = true;
       nextTick(() => modalName.value && modalName.value.focus());
     }
@@ -862,11 +1015,14 @@ createApp({
 
     return {
       STATUS, status, companies, notifs, nextFollowup, showTrash, showNotifs, toast,
-      selectedId, current, messages, loadingThread, generating, sending, draftExists, editor, showReplyPanel, includeCv, extraFiles,
+      sectorFilter, visibleCompanies, filteredProspects, sectorOptions, sectorCls,
+      selectedId, current, messages, loadingThread, generating, correcting, sending, draftExists, editor, showReplyPanel, includeCv, extraFiles,
       editorEl, chatEl, dragging, uploadingCv, modal, modalName, toolbar,
       renaming, renameValue, renameEl, busyMove, move, moveTargets,
+      paragraph,
       fmt, dateTime, ago, dayDiff, senderName, siteUrl, kindLabel,
-      selectCompany, generateDraft, startReply, prepareFollowup, discardDraft, addFiles, sendMail,
+      selectCompany, generateDraft, startReply, correctSpelling, prepareFollowup, discardDraft, addFiles, sendMail,
+      openParagraphs, rewriteParagraph,
       openModal, submitModal, forceStatus, ignoreCompany, restoreCompany, toggleNotifs, markAllRead, openNotification,
       startRename, saveRename, openMove, moveTo, createAndMove,
       syncNow, onPickCv, onDropCv, format, onEditorInput,

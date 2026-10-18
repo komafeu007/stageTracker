@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .. import services
 from ..config import settings
@@ -20,12 +20,14 @@ class CompanyIn(BaseModel):
     name: str
     website: str | None = None
     email: str | None = None
+    sector: str | None = None
 
 
 class CompanyPatch(BaseModel):
     name: str | None = None
     website: str | None = None
     email: str | None = None
+    sector: str | None = None
     status: str | None = None
 
 
@@ -38,6 +40,17 @@ class DraftIn(BaseModel):
     to: str = ""
     subject: str = ""
     body_html: str = ""
+
+
+class CorrectIn(BaseModel):
+    text: str = ""
+
+
+class ParagraphIn(BaseModel):
+    kind: str = ""
+    paragraphs: list[str] = Field(min_length=1)
+    index: int
+    instruction: str = ""
 
 
 class ReadIn(BaseModel):

@@ -11,8 +11,10 @@ from ..constants import APPLICATION, DRAFT_KINDS, FOLLOWUP, REPLY
 from ..db import get_db, kv_get, now_iso, parse_iso, utcnow
 from .deps import (
     MAX_ATTACHMENTS_BYTES,
+    CorrectIn,
     DraftIn,
     GenerateIn,
+    ParagraphIn,
     last_message,
     reply_subject,
     require_company,
@@ -92,6 +94,34 @@ def save_draft(company_id: int, body: DraftIn):
     return {"ok": True}
 
 
+@router.post("/{company_id}/draft/correct")
+def correct_draft(company_id: int, body: CorrectIn):
+    """Corrige uniquement l'orthographe du texte fourni, sans le reformuler ni en changer le sens."""
+    require_company(company_id)
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(400, "Le message est vide : rien à corriger.")
+    try:
+        corrected = ai.correct_spelling(text)
+    except ai.AIError as exc:
+        _raise_ai_error(exc)
+    return {"body_html": tu.text_to_html(corrected)}
+
+
+@router.post("/{company_id}/draft/paragraph")
+def regenerate_paragraph(company_id: int, body: ParagraphIn):
+    """Réécrit un seul paragraphe du brouillon (les autres ne bougent pas)."""
+    company = require_company(company_id)
+    if not 0 <= body.index < len(body.paragraphs):
+        raise HTTPException(400, "Paragraphe introuvable.")
+    context = ai.fetch_company_context(company["website"]) if body.kind == APPLICATION else ""
+    try:
+        text = ai.draft_paragraph(company, context, body.paragraphs, body.index, body.instruction)
+    except ai.AIError as exc:
+        _raise_ai_error(exc)
+    return {"paragraph_html": tu.text_to_html(text)}
+
+
 @router.delete("/{company_id}/draft")
 def delete_draft(company_id: int):
     services.delete_draft(company_id)
@@ -125,14 +155,17 @@ def send_email(
         if not settings.cv_path.exists():
             raise HTTPException(400, "Aucun CV importé : importe ton CV (bandeau du bas) ou décoche « Joindre le CV ».")
         attachments.append((kv_get("cv_filename", "CV.pdf"), settings.cv_path.read_bytes(), "application/pdf"))
+    total = sum(len(a[1]) for a in attachments)
     for upload in files:
         if not upload.filename:
             continue
-        data = upload.file.read()
+        # Lecture bornée : on ne charge pas 2 Go en mémoire avant de refuser la pièce jointe.
+        data = upload.file.read(MAX_ATTACHMENTS_BYTES + 1)
+        if len(data) > MAX_ATTACHMENTS_BYTES or total + len(data) > MAX_ATTACHMENTS_BYTES:
+            raise HTTPException(413, "Pièces jointes trop lourdes (20 Mo maximum au total).")
+        total += len(data)
         ctype = upload.content_type or mimetypes.guess_type(upload.filename)[0] or "application/octet-stream"
         attachments.append((safe_filename(upload.filename, "piece-jointe"), data, ctype))
-    if sum(len(a[1]) for a in attachments) > MAX_ATTACHMENTS_BYTES:
-        raise HTTPException(413, "Pièces jointes trop lourdes (20 Mo maximum au total).")
 
     thread_id = in_reply_to = None
     if kind in (FOLLOWUP, REPLY):

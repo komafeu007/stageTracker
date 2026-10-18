@@ -30,6 +30,42 @@ def contains_keyword(text: str, keywords: list[str]) -> bool:
     return any(normalize(k) in haystack for k in keywords if k)
 
 
+# --------------------------------------------------------------------------- secteur d'activité
+# Heuristique de repli (sans IA) : mots-clés -> secteur. L'IA locale (local_ai) fait mieux.
+# Ordre du plus spécifique au plus générique : le premier secteur qui matche est retenu.
+_SECTOR_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Robotique", ("robot", "cobot", "robotis", "prehenseur", "manipulateur", "actionneur")),
+    ("Vision / Perception", ("vision", "perception", "lidar", "camera", "imagerie", "traitement d'image",
+                             "point cloud", "nuage de points")),
+    ("IA / Data", ("intelligence artificielle", "machine learning", "deep learning", "data science",
+                   "donnees", "apprentissage", "modele predictif")),
+    ("Systèmes embarqués / IoT", ("embarque", "esp32", "arduino", "iot", "microcontroleur", "firmware",
+                                  "capteur", "electronique", "temps reel")),
+    ("Cybersécurité", ("cybersecurite", "securite informatique", "pentest", "vulnerabilite", "malware",
+                       "pare-feu", "soc ")),
+    ("Cloud / DevOps", ("devops", "kubernetes", "docker", "ci/cd", "cloud", "terraform", "ansible", "aws", "azure")),
+    ("Web / Full-stack", ("site web", "frontend", "front-end", "back-end", "backend", "react", "angular",
+                          "javascript", "saas", "application web", "html")),
+    ("Mobile", ("mobile", "android", "swift", "kotlin", "flutter")),
+    ("Jeux vidéo", ("jeu video", "jeux video", "unity", "unreal", "gaming", "game")),
+    ("Réseau / Infrastructure", ("reseau", "infrastructure", "serveur", "sysadmin", "proxmox",
+                                 "virtualisation", "administration systeme")),
+    ("Recherche / Labo", ("laboratoire", "labo", "inria", "cnrs", "these", "publication", "universite",
+                          "academique", "doctorat", "postdoc")),
+    ("Développement logiciel", ("developpement", "logiciel", "application", "python", "java", "c++")),
+)
+
+
+def guess_sector(text: str) -> str | None:
+    """Devine le secteur d'activité par mots-clés (repli quand l'IA locale est indisponible)."""
+    haystack = normalize(text)
+    for sector, words in _SECTOR_KEYWORDS:
+        if any(word in haystack for word in words):
+            return sector
+    return None
+
+
+
 # --------------------------------------------------------------------------- HTML -> texte
 def html_to_text(html: str, drop_quotes: bool = True) -> str:
     soup = BeautifulSoup(html or "", "html.parser")

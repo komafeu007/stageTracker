@@ -12,11 +12,12 @@ CREATE TABLE IF NOT EXISTS company (
     website         TEXT,
     email           TEXT,
     domain          TEXT,
+    sector          TEXT,                              -- ce que fait l'entreprise (sous-domaine IT)
     status          TEXT NOT NULL DEFAULT 'prospect',  -- prospect | pending | followup | replied | refused | ignored
     status_manual   INTEGER NOT NULL DEFAULT 0,        -- 1 = statut forcé par l'utilisateur
     ai_label        TEXT,                              -- refusal | positive | none (dernier mail reçu)
     followup_count  INTEGER NOT NULL DEFAULT 0,
-    anchor_at       TEXT,                              -- date du 1er envoi de la série en cours
+    anchor_at       TEXT,                              -- date du dernier mail envoyé (départ de la relance suivante)
     last_message_at TEXT,
     last_direction  TEXT,                              -- in | out
     summary         TEXT,
@@ -87,6 +88,12 @@ CREATE TABLE IF NOT EXISTS kv (
 );
 """
 
+# Colonnes ajoutées après la première version du schéma : `CREATE TABLE IF NOT EXISTS`
+# ne les ajoute pas à une base existante, on les applique donc explicitement (idempotent).
+_ADDED_COLUMNS = {
+    "company": {"sector": "TEXT"},
+}
+
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
@@ -129,6 +136,16 @@ def init_db() -> None:
     settings.prompts_dir.mkdir(parents=True, exist_ok=True)
     with get_db() as db:
         db.executescript(SCHEMA)
+        _apply_added_columns(db)
+
+
+def _apply_added_columns(db) -> None:
+    """Ajoute les colonnes manquantes sur une base déjà créée (migration additive)."""
+    for table, columns in _ADDED_COLUMNS.items():
+        existing = {row["name"] for row in db.execute(f"PRAGMA table_info({table})")}
+        for name, ddl in columns.items():
+            if name not in existing:
+                db.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
 
 
 def kv_get(key: str, default: str | None = None) -> str | None:

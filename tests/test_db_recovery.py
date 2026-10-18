@@ -3,6 +3,7 @@
 C'est l'incident qui faisait croire que Gmail était déconnecté : toutes les requêtes
 renvoyaient « no such table » et le statut partait en 500.
 """
+import sqlite3
 import unittest
 
 from app import db
@@ -13,6 +14,16 @@ from app.main import ensure_schema
 class SchemaRecoveryTest(unittest.TestCase):
     def setUp(self):
         db.init_db()
+
+    def test_added_columns_are_applied_idempotently(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute("CREATE TABLE company (id INTEGER PRIMARY KEY, name TEXT NOT NULL)")
+        db._apply_added_columns(conn)
+        db._apply_added_columns(conn)  # une deuxième passe ne doit rien casser
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(company)")}
+        conn.close()
+        self.assertIn("sector", cols)
 
     def test_schema_is_recreated_after_truncation(self):
         db.kv_set("cle", "valeur")

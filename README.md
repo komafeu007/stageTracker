@@ -19,7 +19,7 @@ machine, sauf ce que tu envoies volontairement à Google (Gmail, Gemini).
   - [Option B — Python local (Linux / macOS / Windows)](#option-b--python-local-linux--macos--windows)
 - [Configurer les services externes](#configurer-les-services-externes)
   - [1. Gmail via Google Cloud (obligatoire)](#1-gmail-via-google-cloud-obligatoire)
-  - [2. Ollama — IA locale de classification (obligatoire)](#2-ollama--ia-locale-de-classification-obligatoire)
+  - [2. Ollama — IA locale de classification (recommandé)](#2-ollama--ia-locale-de-classification-recommandé)
   - [3. Gemini — rédaction des e-mails (optionnel)](#3-gemini--rédaction-des-e-mails-optionnel)
 - [Configuration de l'application (`.env`)](#configuration-de-lapplication-env)
 - [Personnaliser les prompts (ton profil)](#personnaliser-les-prompts-ton-profil)
@@ -40,11 +40,23 @@ machine, sauf ce que tu envoies volontairement à Google (Gmail, Gemini).
   incrémentale (delta) en tâche de fond.
 - **Pré-filtre par mots-clés** : les mails hors sujet ne sont jamais envoyés à l'IA.
 - **Classification par IA locale (Ollama)** : pertinence, nom de l'entreprise, refus ou
-  réponse positive, résumé.
-- **Rédaction assistée (Gemini)** : brouillons de candidature, de relance et de réponse.
-- **Relances proposées** à J+7 et J+14, arrêt automatique après 60 jours sans réponse.
+  réponse positive, résumé, **secteur d'activité**.
+- **Rédaction assistée (Gemini)** : brouillons de candidature, de relance et de réponse, plus
+  **correction d'orthographe à la demande** (corrige les fautes **sans** réécrire le contenu) et
+  **révision paragraphe par paragraphe** (l'IA propose une autre version d'un seul paragraphe).
+  Le style reste simple : **aucun superlatif ni mot compliqué**.
+  Le 2e paragraphe des candidatures reprend celui des exemples validés, et le projet présenté est
+  choisi selon l'activité de l'entreprise (bras robotique, vision, IoT, infrastructure…), sans
+  jamais citer un projet hors sujet.
+- **Relances proposées** `FOLLOWUP_DAYS` jours après **le dernier mail envoyé** (J+7 puis J+14
+  par défaut), recalculées à chaque synchro ; arrêt automatique au bout de `FOLLOWUP_MAX_AGE_DAYS`.
 - **Correction manuelle** : renommer une entreprise, déplacer un mail (ou toute une
   conversation) vers une autre entreprise.
+- **Secteur d'activité** : chaque entreprise peut être rangée dans un sous-domaine IT
+  (développement, web, robotique, vision, infra…). **Déduit automatiquement du contenu des mails**
+  échangés (IA locale Ollama, sinon mots-clés), il peut être corrigé à la main. Le secteur est
+  utilisé pour choisir le projet mis en avant dans la candidature, et la barre de gauche se filtre
+  par secteur.
 - **Jauge de tokens**, centre de notifications, corbeille pour les faux positifs.
 - **Jamais d'envoi automatique** : tout passe par le bouton « Envoyer ».
 
@@ -60,7 +72,7 @@ Fil Gmail
 2. Entreprise déjà connue ? (même adresse ou même domaine)  → rattachement direct
    │
    ▼
-3. Classification par Ollama : pertinent ? quelle entreprise ? refus / positif ? résumé ?
+3. Classification par Ollama : pertinent ? quelle entreprise ? refus / positif ? résumé ? secteur ?
    │
    ▼
 4. Sinon repli : entreprise déduite du domaine de l'adresse
@@ -86,7 +98,7 @@ d'entreprise déduit du domaine) ; la rédaction, elle, nécessite Gemini.
 | Docker + Docker Compose | récent | optionnel (Option A) |
 | Git | — | pour cloner le dépôt |
 | Compte Gmail | — | la boîte à analyser |
-| Ollama | — | IA locale de classification (gratuit) |
+| Ollama | — | IA locale de classification (gratuit, recommandé) |
 | Clé API Gemini | — | optionnel : uniquement pour la rédaction |
 
 ---
@@ -173,7 +185,7 @@ Scopes demandés par l'application (visibles à la connexion) :
 > 🔒 `credentials.json` et `data/token.json` sont des secrets : ne les partage jamais et ne les
 > commite jamais (ils sont dans `.gitignore`).
 
-### 2. Ollama — IA locale de classification (obligatoire)
+### 2. Ollama — IA locale de classification (recommandé)
 
 Ollama analyse les fils **sur ta machine** (aucun envoi de mail à un service tiers).
 
@@ -244,7 +256,7 @@ cp .env.example .env
 | `OLLAMA_HOST` | `http://localhost:11434` | URL du serveur Ollama |
 | `OLLAMA_MODEL` | `llama3.2:1b` | Modèle Ollama utilisé |
 | `GMAIL_KEYWORDS` | `stage,stagiaire,candidature,alternance,apprentissage,internship,recrutement` | Mots-clés du pré-filtre (**ajoute ton domaine**) |
-| `FOLLOWUP_DAYS` | `7,14` | Jours des relances |
+| `FOLLOWUP_DAYS` | `7,14` | Délai (jours) après le dernier mail envoyé, pour chaque relance |
 | `FOLLOWUP_MAX_AGE_DAYS` | `60` | Arrêt des relances au-delà |
 | `SYNC_INTERVAL_MINUTES` | `10` | Fréquence de la synchro de fond |
 | `SCAN_MAX_THREADS` | `300` | Fils max lus au premier scan |
@@ -310,9 +322,13 @@ Si un fichier est absent, l'application utilise un profil générique de repli.
 | Action | Où | Effet |
 |--------|----|-------|
 | Renommer une entreprise | clic sur son nom | corrige un nom mal deviné par l'IA |
+| Définir le secteur | modale « Modifier l'entreprise » | range l'entreprise dans un sous-domaine IT |
+| Filtrer la barre de gauche | liste « Secteur » en haut | n'affiche que ce secteur |
 | Déplacer un mail | bouton ⇄ sur une bulle | réaffecte **ce mail** à une autre entreprise |
 | Déplacer la conversation | bouton ⇄ dans l'en-tête | réaffecte **tous** les mails du fil |
 | Rédiger / Régénérer | boutons de l'éditeur | brouillon Gemini (éditable) |
+| Corriger l'orthographe | bouton de l'éditeur | corrige **uniquement** les fautes, sans reformuler |
+| Réviser un paragraphe | bouton « Réviser un paragraphe » | l'IA change **un seul** paragraphe (ex. prendre un autre exemple) |
 | Répondre / Relancer | boutons de l'éditeur | brouillon adapté au contexte |
 | Ignorer / Restaurer | en-tête ou corbeille | met une entreprise à la corbeille (réversible) |
 | Envoyer | bouton de l'éditeur | **seul moyen d'envoyer un e-mail** |
@@ -432,12 +448,15 @@ re-analysés depuis Gmail.
 | Symptôme | Cause probable / solution |
 |----------|---------------------------|
 | `credentials.json introuvable` | Le fichier doit être dans `secrets/` |
-| Gmail « non connecté » après redémarrage | Reclique **Connecter Gmail** (le jeton a expiré) |
+| Gmail « non connecté » alors que tu étais connecté | Le jeton a été révoqué ou a expiré : reclique **Connecter Gmail** |
 | `redirect_uri_mismatch` | Définis `OAUTH_REDIRECT_URI` (ex. `http://localhost:8000/auth/callback`) |
 | `Ollama injoignable` | `ollama serve` n'est pas lancé, ou `OLLAMA_HOST` est faux |
 | `Model not found` | `ollama pull llama3.2:1b` |
 | Classification toujours identique | Modèle trop petit : essaie `OLLAMA_MODEL=mistral:7b` |
+| Secteur vide après une synchro | Ollama est indisponible : définis le secteur à la main dans la modale |
 | `429` sur Gemini | Quota atteint : attends, ou laisse les modèles de repli faire le travail |
+| « Réponse IA illisible » ou texte coupé | Le modèle a tronqué sa réponse : réessaie, ou change `GEMINI_MODEL` |
+| « La base de données a été réparée. Recharge la page. » | Le fichier SQLite avait perdu son schéma : les tables ont été recréées, relance une synchro |
 | Erreur 403 en testant l'API | Ajoute l'en-tête `X-Requested-With: stagetracker` |
 | Page blanche | Le navigateur a besoin d'Internet (Vue et Tailwind viennent de CDN) |
 | Rien ne se met à jour | Redémarre : `.env` n'est lu qu'au démarrage |
@@ -467,6 +486,12 @@ rm data/stage_tracker.db
 - 🛡️ **Anti-CSRF** : toute requête non-`GET` doit porter l'en-tête
   `X-Requested-With: stagetracker`.
 - 🔑 **Mot de passe optionnel** : `APP_PASSWORD` protège l'interface si tu l'exposes.
+- 🩺 **Seule exception au mot de passe** : `/api/health`, la sonde du conteneur — elle ne
+  renvoie que `{"ok": true}`.
+- 🧼 **HTML nettoyé avant envoi** : le corps rédigé est filtré (`sanitize_html`) ; seules les
+  balises de mise en forme simples passent.
+- 🌐 **Site de l'entreprise lu avec prudence** : pour personnaliser un mail, seules les adresses
+  publiques `http(s)` sont récupérées ; `localhost` et les IP privées sont ignorées.
 
 > ⚠️ Si une clé a pu être exposée (commit, capture, dépôt public), **révoque-la** :
 > - Google Cloud → *Clients* → supprime/régénère le client OAuth ;

@@ -64,6 +64,44 @@ def _run(force_full: bool) -> None:
             log.warning("historyId expiré : scan complet de rattrapage")
             _full_scan(service, me, str(profile["historyId"]))
     services.check_followups()
+    backfill_sectors()
+
+
+def backfill_sectors(limit: int = 200) -> int:
+    """Complète le secteur des entreprises qui n'en ont pas, d'après leurs mails déjà en base.
+
+    Utile pour les entreprises importées avant l'existence du champ « secteur ». Ne touche jamais
+    un secteur déjà renseigné (ni par l'IA, ni par l'utilisateur). Retourne le nombre complété.
+    """
+    with get_db() as db:
+        companies = db.execute(
+            "SELECT id, name FROM company WHERE (sector IS NULL OR sector = '') AND status != ? "
+            "ORDER BY id LIMIT ?", (IGNORED, limit),
+        ).fetchall()
+    filled = 0
+    for company in companies:
+        with get_db() as db:
+            rows = db.execute(
+                "SELECT direction, sent_at, subject, body FROM message WHERE company_id = ? "
+                "ORDER BY sent_at DESC LIMIT 6", (company["id"],),
+            ).fetchall()
+        if not rows:
+            continue  # rien à lire (entreprise ajoutée à la main, jamais contactée)
+        msgs = [dict(row) for row in reversed(rows)]
+        subject = msgs[0].get("subject") or company["name"]
+        classification = None
+        if local_ai.enabled():
+            try:
+                classification = local_ai.classify_thread(subject, msgs)
+            except local_ai.LocalAIError as exc:
+                log.warning("Secteur : classification impossible pour %s : %s", company["name"], exc)
+        sector = _sector_from(classification, subject, msgs)
+        if sector:
+            with get_db() as db:
+                db.execute("UPDATE company SET sector = ? WHERE id = ? AND (sector IS NULL OR sector = '')",
+                           (sector, company["id"]))
+            filled += 1
+    return filled
 
 
 def _full_scan(service, me: str, start_history_id: str) -> None:
@@ -168,11 +206,13 @@ def _default_company_name(external: list[str]) -> str:
     return tu.name_from_domain(domain) if not tu.is_generic_domain(domain) else primary.split("@")[0].title()
 
 
-def _find_or_create_company(db, name: str, email: str, summary: str | None) -> int | None:
+def _find_or_create_company(db, name: str, email: str, summary: str | None,
+                            sector: str | None = None) -> int | None:
     existing = db.execute("SELECT id, status FROM company WHERE lower(name) = lower(?)", (name,)).fetchone()
     if existing:
         return None if existing["status"] == IGNORED else existing["id"]
-    return services.create_company(db, name=name, website=None, email=email, status=PENDING, summary=summary)
+    return services.create_company(db, name=name, website=None, email=email, status=PENDING,
+                                   summary=summary, sector=sector)
 
 
 def _resolve_new_thread(thread_id: str, msgs: list[dict], subject: str, me: str) -> tuple[int | None, dict | None]:
@@ -217,9 +257,19 @@ def _resolve_new_thread(thread_id: str, msgs: list[dict], subject: str, me: str)
     primary = next((a for a in external if not _is_noreply(a)), external[0])
     name = (analysis or {}).get("company_name") or _default_company_name(external)
     summary = (analysis or {}).get("summary") or None
+    sector = _sector_from(analysis, subject, msgs) or None
     with get_db() as db:
-        company_id = _find_or_create_company(db, name, primary, summary)
+        company_id = _find_or_create_company(db, name, primary, summary, sector)
     return company_id, analysis
+
+
+def _sector_from(classification: dict | None, subject: str, msgs: list[dict]) -> str:
+    """Secteur proposé par l'IA locale, sinon deviné par mots-clés dans le contenu des mails."""
+    from_ai = (classification or {}).get("sector")
+    if from_ai:
+        return from_ai
+    corpus = subject + "\n" + "\n".join(m["body"] for m in msgs)
+    return tu.guess_sector(corpus) or ""
 
 
 def _store_messages(thread_id: str, company_id: int, subject: str, msgs: list[dict],
@@ -229,6 +279,7 @@ def _store_messages(thread_id: str, company_id: int, subject: str, msgs: list[di
         if company is None or company["status"] == IGNORED:
             return
         company_name = company["name"]
+        sector = (company["sector"] or "").strip()
         db.execute("INSERT OR IGNORE INTO thread(id, company_id, subject, created_at) VALUES (?, ?, ?, ?)",
                    (thread_id, company_id, subject, now_iso()))
         new_msgs: list[dict] = []
@@ -241,21 +292,34 @@ def _store_messages(thread_id: str, company_id: int, subject: str, msgs: list[di
             )
             if cur.rowcount:
                 new_msgs.append(m)
-        if not new_msgs:
-            return
     new_inbound = [m for m in new_msgs if m["direction"] == "in"]
 
-    # Issue du fil : fournie par l'analyse initiale, sinon on classe la dernière réponse reçue.
-    outcome = analysis["outcome"] if analysis else None
-    if new_inbound and outcome is None and local_ai.enabled():
+    # Une seule classification locale au besoin : issue du fil et/ou secteur manquant.
+    classification = analysis
+    if classification is None and local_ai.enabled() and (new_inbound or not sector):
         try:
-            outcome = local_ai.classify_thread(subject, msgs)["outcome"]
+            classification = local_ai.classify_thread(subject, msgs)
         except local_ai.LocalAIError as exc:
             log.warning("Classification IA locale impossible pour %s : %s", thread_id, exc)
+
+    if not new_msgs:
+        # Fil déjà connu, rien de neuf : on complète seulement le secteur s'il manque.
+        sector = sector or _sector_from(classification, subject, msgs)
+        if sector:
+            with get_db() as db:
+                db.execute("UPDATE company SET sector = ? WHERE id = ? AND (sector IS NULL OR sector = '')",
+                           (sector, company_id))
+        return
+
+    outcome = classification["outcome"] if classification else None
+    new_sector = sector or _sector_from(classification, subject, msgs)
 
     with get_db() as db:
         if new_inbound and outcome:
             db.execute("UPDATE company SET ai_label = ? WHERE id = ?", (outcome, company_id))
+        if not sector and new_sector:
+            db.execute("UPDATE company SET sector = ? WHERE id = ? AND (sector IS NULL OR sector = '')",
+                       (new_sector, company_id))
         if analysis and analysis.get("summary"):
             db.execute("UPDATE company SET summary = ? WHERE id = ?", (analysis["summary"], company_id))
         services.recompute_company(db, company_id, new_activity=True)

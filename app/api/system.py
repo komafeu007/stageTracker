@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 
 from .. import gemini_client, gmail_client as gm, services, sync
 from ..config import settings
+from ..constants import SECTORS
 from ..db import kv_get
 from .deps import cv_info
 
@@ -34,6 +35,7 @@ def api_status():
         "ai_enabled": gemini_client.enabled(),
         "ai_model": settings.gemini_model,
         "user_name": settings.user_name,
+        "sectors": list(SECTORS),
         "cv": cv_info(),
         "sync": {k: sync.state[k] for k in ("running", "mode", "done", "total", "last_run", "last_error")},
         "tokens": services.token_stats(),

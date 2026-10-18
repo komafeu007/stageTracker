@@ -27,3 +27,22 @@ OUTCOME_NONE = "none"
 OUTCOME_POSITIVE = "positive"
 OUTCOME_REFUSAL = "refusal"
 OUTCOMES = frozenset({OUTCOME_NONE, OUTCOME_POSITIVE, OUTCOME_REFUSAL})
+
+# --- Secteur d'activité (« ce que fait l'entreprise ») -----------------------
+# Sous-domaines de l'informatique proposés dans l'interface. Le champ reste libre :
+# c'est ce secteur qui guide le choix du projet mis en avant dans la candidature.
+SECTORS = (
+    "Développement logiciel",
+    "Web / Full-stack",
+    "Mobile",
+    "Robotique",
+    "Vision / Perception",
+    "IA / Data",
+    "Systèmes embarqués / IoT",
+    "Réseau / Infrastructure",
+    "Cybersécurité",
+    "Cloud / DevOps",
+    "Jeux vidéo",
+    "Recherche / Labo",
+)
+

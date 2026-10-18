@@ -25,7 +25,11 @@ def followup_label(count: int) -> str | None:
 
 
 def compute_due(row) -> datetime | None:
-    """Date de la prochaine relance (J+7 puis J+14 après le 1er envoi), ou None."""
+    """Date de la prochaine relance : dernier envoi + FOLLOWUP_DAYS[n], ou None.
+
+    Le compteur part du dernier mail envoyé (et non de la candidature) : une relance envoyée en
+    retard ne doit pas faire apparaître aussitôt la suivante comme déjà due.
+    """
     if row["status"] != PENDING or not row["anchor_at"]:
         return None
     count = row["followup_count"]
@@ -46,6 +50,7 @@ def company_to_dict(row) -> dict:
         "name": row["name"],
         "website": row["website"],
         "email": row["email"],
+        "sector": row["sector"],
         "status": status,                 # statut affiché
         "stored_status": row["status"],   # statut en base
         "status_manual": bool(row["status_manual"]),
@@ -109,17 +114,41 @@ def next_followup() -> dict | None:
 
 
 def check_followups() -> None:
-    """Crée une notification pour chaque relance arrivée à échéance (une seule fois par relance)."""
+    """Recalcule les échéances, notifie chaque relance due (une seule fois) et purge les obsolètes."""
+    recompute_followups()
     now = utcnow()
+    valid: list[str] = []
     with get_db() as db:
         for row in db.execute("SELECT * FROM company WHERE status = ?", (PENDING,)).fetchall():
             due = compute_due(row)
-            if due and due <= now:
-                add_notification(
-                    db, "followup", row["id"],
-                    f"Relance {followup_label(row['followup_count'])} à envoyer à {row['name']}",
-                    f"followup:{row['id']}:{row['followup_count']}:{row['anchor_at']}",
-                )
+            if not due or due > now:
+                continue
+            key = f"followup:{row['id']}:{row['followup_count']}:{row['anchor_at']}"
+            valid.append(key)
+            add_notification(
+                db, "followup", row["id"],
+                f"Relance {followup_label(row['followup_count'])} à envoyer à {row['name']}",
+                key,
+            )
+        # Une relance notifiée puis envoyée (ou repoussée) ne doit plus traîner dans le journal.
+        marks = ",".join("?" for _ in valid) or "''"
+        db.execute(
+            f"DELETE FROM notification WHERE type = 'followup' AND dedupe_key NOT IN ({marks})", valid
+        )
+
+
+def recompute_followups() -> int:
+    """Recalcule statut et échéance de relance de toutes les entreprises.
+
+    L'échéance ne dépend que des dates des mails déjà en base : le simple passage du temps doit
+    donc suffire à la faire évoluer, sans attendre qu'un nouveau mail arrive. Appelé à chaque
+    synchro (et à chaque tour de la boucle de fond) pour que les relances restent justes.
+    """
+    with get_db() as db:
+        rows = db.execute("SELECT id FROM company WHERE status != ?", (IGNORED,)).fetchall()
+        for row in rows:
+            recompute_company(db, row["id"])
+    return len(rows)
 
 
 # --------------------------------------------------------------------------- recalcul du statut
@@ -140,7 +169,10 @@ def recompute_company(db, company_id: int, new_activity: bool = False) -> None:
         if m["direction"] != "out":
             break
         trailing.append(m)
-    anchor = trailing[-1]["sent_at"] if trailing else None   # 1er envoi de la série en cours
+    # Départ du décompte : le dernier mail que NOUS avons envoyé (trailing[0] = le plus récent).
+    # Prendre le 1er envoi de la série ferait passer la relance suivante pour déjà due dès qu'une
+    # relance part en retard.
+    anchor = trailing[0]["sent_at"] if trailing else None
     followups = max(0, len(trailing) - 1)                    # envois suivants = relances faites
 
     manual = 0 if new_activity else company["status_manual"]  # un nouveau message annule le statut forcé
@@ -170,14 +202,16 @@ def compute_domain(website: str | None, email: str | None) -> str | None:
 
 
 def create_company(db, name: str, website: str | None, email: str | None,
-                   status: str = PROSPECT, summary: str | None = None) -> int:
+                   status: str = PROSPECT, summary: str | None = None,
+                   sector: str | None = None) -> int:
     email = (email or "").strip().lower() or None
     website = (website or "").strip() or None
+    sector = (sector or "").strip() or None
     domain = compute_domain(website, email)
     cur = db.execute(
-        "INSERT INTO company(name, website, email, domain, status, summary, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (name.strip(), website, email, domain, status, summary, now_iso()),
+        "INSERT INTO company(name, website, email, domain, sector, status, summary, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (name.strip(), website, email, domain, sector, status, summary, now_iso()),
     )
     return cur.lastrowid
 

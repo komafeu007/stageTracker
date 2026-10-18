@@ -92,6 +92,71 @@ class SyncPipelineTest(unittest.TestCase):
             count = db.execute("SELECT COUNT(*) c FROM message WHERE thread_id = 'tsync1'").fetchone()["c"]
         self.assertEqual(count, 2)
 
+    def test_04_new_thread_fills_sector_from_mail_content(self):
+        sync.local_ai.classify_thread = lambda subject, msgs: {
+            "relevant": True, "company_name": "RoboVision", "outcome": "none",
+            "sector": "Vision / Perception", "summary": "",
+        }
+        _install_thread([_msg("s4", "in", "Stage en vision",
+                              "Nous concevons des systèmes de vision par ordinateur.",
+                              "contact@robovision.example")])
+        sync.process_thread(object(), "tsync4", ME, notify=False)
+
+        with get_db() as db:
+            row = db.execute("SELECT sector FROM company WHERE name = 'RoboVision'").fetchone()
+        self.assertEqual(row["sector"], "Vision / Perception")
+
+    def test_05_sector_backfilled_by_keywords_without_local_ai(self):
+        sync.local_ai.enabled = lambda: False
+        _install_thread([_msg("s5", "in", "Offre de stage en cybersécurité",
+                              "Nous renforçons notre équipe cybersécurité (pentest, audit).",
+                              "rh@secure.example")])
+        sync.process_thread(object(), "tsync5", ME, notify=False)
+
+        with get_db() as db:
+            row = db.execute("SELECT sector FROM company WHERE email = 'rh@secure.example'").fetchone()
+        self.assertEqual(row["sector"], "Cybersécurité")
+
+    def test_06_existing_company_without_sector_is_completed(self):
+        sync.local_ai.enabled = lambda: True
+        sync.local_ai.classify_thread = lambda subject, msgs: {
+            "relevant": True, "company_name": "Factory", "outcome": "none", "sector": "", "summary": "",
+        }
+        _install_thread([_msg("s6", "in", "Réponse à votre candidature",
+                              "Nous automatisons des chaînes de production avec des robots.",
+                              "rh@factory.example")])
+        sync.process_thread(object(), "tsync6", ME, notify=False)
+        with get_db() as db:
+            row = db.execute("SELECT id FROM company WHERE email = 'rh@factory.example'").fetchone()
+            db.execute("UPDATE company SET sector = NULL WHERE id = ?", (row["id"],))
+
+        # Deuxième passage (fil déjà connu, aucun nouveau message) : le secteur est complété.
+        sync.process_thread(object(), "tsync6", ME, notify=False)
+        with get_db() as db:
+            sector = db.execute("SELECT sector FROM company WHERE id = ?", (row["id"],)).fetchone()["sector"]
+        self.assertEqual(sector, "Robotique")
+
+    def test_07_backfill_sectors_uses_stored_messages(self):
+        sync.local_ai.enabled = lambda: False
+        with get_db() as db:
+            cid = db.execute(
+                "INSERT INTO company(name, status, created_at) VALUES (?, ?, ?)",
+                ("BackfillCo", "pending", "2026-01-01T00:00:00+00:00"),
+            ).lastrowid
+            db.execute("INSERT INTO thread(id, company_id, created_at) VALUES (?, ?, ?)",
+                       ("tback", cid, "2026-01-02T00:00:00+00:00"))
+            db.execute(
+                "INSERT INTO message(id, thread_id, company_id, direction, sent_at, subject, body) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                ("b1", "tback", cid, "in", "2026-01-02T00:00:00+00:00", "Stage robotique",
+                 "Nous développons un bras robotique."),
+            )
+
+        self.assertGreaterEqual(sync.backfill_sectors(), 1)
+        with get_db() as db:
+            sector = db.execute("SELECT sector FROM company WHERE id = ?", (cid,)).fetchone()["sector"]
+        self.assertEqual(sector, "Robotique")
+
 
 if __name__ == "__main__":
     unittest.main()

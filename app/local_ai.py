@@ -3,7 +3,8 @@
 Rôle unique d'Ollama dans l'application : lire un fil et décider
 1) s'il concerne la recherche de stage (pertinence),
 2) l'entreprise concernée,
-3) l'issue de la dernière réponse (refus / positif / neutre).
+3) l'issue de la dernière réponse (refus / positif / neutre),
+4) le secteur d'activité de l'entreprise (déduit du contenu des mails).
 
 La rédaction et l'envoi des e-mails sont assurés par Gemini (gemini_client).
 """
@@ -16,20 +17,25 @@ import httpx
 
 from . import textutils as tu
 from .config import settings
-from .constants import OUTCOME_NONE, OUTCOMES
+from .constants import OUTCOME_NONE, OUTCOMES, SECTORS
 
 log = logging.getLogger("stage-tracker.local_ai")
 
-SYSTEM_PROMPT = """Tu analyses des fils d'e-mails d'une boîte Gmail : un étudiant y suit ses candidatures de stage.
+_SECTORS_HINT = ", ".join(SECTORS)
+
+SYSTEM_PROMPT = f"""Tu analyses des fils d'e-mails d'une boîte Gmail : un étudiant y suit ses candidatures de stage.
 Décide si le fil concerne la RECHERCHE DE STAGE : candidature envoyée par l'étudiant, réponse d'une
 entreprise ou d'un recruteur, proposition d'entretien, refus, relance.
 NE SONT PAS pertinents : newsletters, publicités, alertes d'offres génériques, notifications de
 réseaux sociaux, factures, e-mails scolaires sans lien avec la recherche de stage, spams.
 Réponds uniquement en JSON, sans texte autour :
-{"relevant": true|false, "company_name": "nom ou ''", "outcome": "none|positive|refusal", "summary": "phrase"}
+{{"relevant": true|false, "company_name": "nom ou ''", "outcome": "none|positive|refusal",
+"sector": "secteur ou ''", "summary": "phrase"}}
 - outcome = "refusal" si la dernière réponse de l'entreprise est un refus ;
 - outcome = "positive" si elle propose un entretien, un échange ou montre de l'intérêt ;
-- outcome = "none" sinon (aucune réponse d'entreprise, accusé de réception...)."""
+- outcome = "none" sinon (aucune réponse d'entreprise, accusé de réception...).
+- sector = ce que fait réellement l'entreprise d'après le contenu des mails, à choisir dans cette
+  liste : {_SECTORS_HINT}. Mets "" si tu n'es pas sûr."""
 
 # Longueur du contexte envoyé au modèle (en caractères).
 _PROMPT_BUDGET = 3500
@@ -99,12 +105,12 @@ def _build_prompt(subject: str, messages: list[dict]) -> str:
 
 
 def classify_thread(subject: str, messages: list[dict]) -> dict:
-    """Classe un fil : pertinence, nom d'entreprise, issue et résumé.
+    """Classe un fil : pertinence, nom d'entreprise, issue, secteur et résumé.
 
     Lève LocalAIError en cas d'échec (appelant libre de retomber sur un mode dégradé).
     """
     if not messages:
-        return {"relevant": False, "company_name": "", "outcome": OUTCOME_NONE, "summary": ""}
+        return {"relevant": False, "company_name": "", "outcome": OUTCOME_NONE, "sector": "", "summary": ""}
     raw = _generate(SYSTEM_PROMPT, _build_prompt(subject, messages))
     data = _parse_json(raw)
     outcome = data.get("outcome") if data.get("outcome") in OUTCOMES else OUTCOME_NONE
@@ -112,5 +118,17 @@ def classify_thread(subject: str, messages: list[dict]) -> dict:
         "relevant": bool(data.get("relevant")),
         "company_name": str(data.get("company_name") or "").strip(),
         "outcome": outcome,
+        "sector": _clean_sector(data.get("sector")),
         "summary": str(data.get("summary") or "").strip(),
     }
+
+
+_SECTOR_BY_NORM = {tu.normalize(s): s for s in SECTORS}
+
+
+def _clean_sector(value) -> str:
+    """Ramène le secteur renvoyé par le modèle à un libellé connu, sinon garde le texte brut."""
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    return _SECTOR_BY_NORM.get(tu.normalize(raw), raw[:40])
