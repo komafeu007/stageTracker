@@ -2,7 +2,7 @@
 import unittest
 
 from app import sync
-from app.db import get_db, init_db
+from app.db import get_db, init_db, kv_get, kv_set
 from app.services import get_company_dict
 
 ME = "etudiant@example.com"
@@ -22,6 +22,32 @@ def _msg(mid, direction, subject, body, sender, sent="2026-01-10T10:00:00+00:00"
 def _install_thread(messages):
     sync.gm.get_thread = lambda service, tid, **kw: {"messages": messages}
     sync.gm.parse_message = lambda m, me: m
+
+
+class ReauthStateTest(unittest.TestCase):
+    """Un jeton révoqué doit rester signalé après un redémarrage (bouton visible)."""
+
+    def setUp(self):
+        init_db()
+        self._get_service = sync.gm.get_service
+        sync.state["needs_reauth"] = False
+        sync.state["last_error"] = None
+        kv_set(sync.REAUTH_KEY, "0")
+
+    def tearDown(self):
+        sync.gm.get_service = self._get_service
+        sync.state["needs_reauth"] = False
+        sync.state["last_error"] = None
+        kv_set(sync.REAUTH_KEY, "0")
+
+    def test_failed_refresh_persists_reauth_flag(self):
+        def _expired():
+            raise sync.gm.NotConnectedError("autorisation expirée")
+
+        sync.gm.get_service = _expired
+        self.assertTrue(sync.run_sync())
+        self.assertTrue(sync.state["needs_reauth"])
+        self.assertEqual(kv_get(sync.REAUTH_KEY), "1")
 
 
 class SyncPipelineTest(unittest.TestCase):

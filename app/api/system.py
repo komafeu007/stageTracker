@@ -31,7 +31,7 @@ def api_status():
         "gmail_connected": gm.is_connected(),
         "gmail_email": kv_get("my_email"),
         "has_client_secret": gm.has_client_secret(),
-        "needs_reauth": sync.state["needs_reauth"],
+        "needs_reauth": sync.state["needs_reauth"] or kv_get(sync.REAUTH_KEY) == "1",
         "ai_enabled": gemini_client.enabled(),
         "ai_model": settings.gemini_model,
         "user_name": settings.user_name,

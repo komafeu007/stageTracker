@@ -364,7 +364,7 @@ re-analysés depuis Gmail.
 | Symptôme | Cause probable / solution |
 |----------|---------------------------|
 | `credentials.json introuvable` | Le fichier doit être dans `secrets/` |
-| Gmail « non connecté » alors que tu étais connecté | Le jeton a été révoqué ou a expiré : reclique **Connecter Gmail** |
+| Gmail « non connecté » / bandeau « L'autorisation Gmail a expiré ou a été révoquée » | Le jeton a été révoqué ou a expiré : clique sur **Reconnecter Gmail** (visible aussi quand `data/token.json` existe encore) |
 | `redirect_uri_mismatch` | Définis `OAUTH_REDIRECT_URI` (ex. `http://localhost:8000/auth/callback`) |
 | `Ollama injoignable` | `ollama serve` n'est pas lancé, ou `OLLAMA_HOST` est faux |
 | `Model not found` | `ollama pull llama3.2:1b` |
@@ -376,6 +376,12 @@ re-analysés depuis Gmail.
 | Erreur 403 en testant l'API | Ajoute l'en-tête `X-Requested-With: stagetracker` |
 | Page blanche | Le navigateur a besoin d'Internet (Vue et Tailwind viennent de CDN) |
 | Rien ne se met à jour | Redémarre : `.env` n'est lu qu'au démarrage |
+
+> **La reconnexion Gmail revient chaque semaine ?** C'est la limite Google pour une application
+> OAuth dont l'écran de consentement est en mode **Testing** : le jeton de rafraîchissement expire
+> au bout de 7 jours. Dans Google Cloud Console → *APIs & Services* → *OAuth consent screen*,
+> passe le statut de publication en **In production**. L'avertissement « application non
+> vérifiée » subsiste pour un usage personnel, mais le jeton ne meurt plus tous les 7 jours.
 
 ```bash
 # Docker

@@ -4,7 +4,9 @@ from unittest import mock
 
 from fastapi.testclient import TestClient
 
+from app import sync
 from app.api import mail
+from app.db import kv_set
 from app.main import app
 
 CSRF = {"X-Requested-With": "stagetracker"}
@@ -31,6 +33,13 @@ class ApiTest(unittest.TestCase):
             self.assertIn(key, status["sync"])
         for key in ("month_tokens", "budget", "percent", "model"):
             self.assertIn(key, status["tokens"])
+
+    def test_status_reports_persisted_reauth(self):
+        kv_set(sync.REAUTH_KEY, "1")
+        try:
+            self.assertTrue(self.client.get("/api/status").json()["needs_reauth"])
+        finally:
+            kv_set(sync.REAUTH_KEY, "0")
 
     def test_csrf_required_on_writes(self):
         self.assertEqual(self.client.post("/api/companies", json={"name": "X"}).status_code, 403)

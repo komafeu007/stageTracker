@@ -17,6 +17,8 @@ from .db import get_db, kv_get, kv_set, now_iso
 
 log = logging.getLogger("stage-tracker.sync")
 
+REAUTH_KEY = "gmail_reauth_required"
+
 state: dict = {
     "running": False, "mode": None, "done": 0, "total": 0,
     "last_run": None, "last_error": None, "needs_reauth": False,
@@ -33,9 +35,13 @@ def run_sync(force_full: bool = False) -> bool:
         try:
             _run(force_full)
             state["needs_reauth"] = False
+            kv_set(REAUTH_KEY, "0")
         except gm.NotConnectedError as exc:
             state["last_error"] = str(exc)
             state["needs_reauth"] = True
+            # Persisté : sinon, après un redémarrage, l'UI croit encore Gmail connecté
+            # (token.json existe toujours) et n'affiche pas le bouton « Reconnecter Gmail ».
+            kv_set(REAUTH_KEY, "1")
         except Exception as exc:  # noqa: BLE001 - on affiche l'erreur à l'utilisateur
             log.exception("Erreur de synchronisation")
             state["last_error"] = f"Erreur de synchronisation : {exc}"

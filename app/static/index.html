@@ -104,7 +104,7 @@
             <template v-if="sectorFilter">Aucune entreprise dans ce secteur.</template>
             <template v-else-if="showTrash">La corbeille est vide.</template>
             <template v-else-if="status.sync.running">Import de ta boîte Gmail en cours…</template>
-            <template v-else-if="!status.gmail_connected">Connecte Gmail pour importer tes candidatures.</template>
+            <template v-else-if="!status.gmail_connected || status.needs_reauth">{{ status.needs_reauth ? 'Reconnecte Gmail pour importer tes candidatures.' : 'Connecte Gmail pour importer tes candidatures.' }}</template>
             <template v-else>Aucune candidature pour l'instant. Envoie ta première candidature depuis la liste du bas.</template>
           </li>
         </ul>
@@ -118,7 +118,7 @@
             </template>
             <template v-else-if="status.sync.last_run">Dernière synchro {{ ago(status.sync.last_run) }}</template>
             <template v-else>Pas encore synchronisé</template>
-            <button v-if="status.gmail_connected && !status.sync.running" @click="syncNow(false)"
+            <button v-if="status.gmail_connected && !status.needs_reauth && !status.sync.running" @click="syncNow(false)"
                     class="ml-1 underline font-semibold">Synchroniser</button>
           </p>
           <p v-if="status.sync.last_error" class="text-xs text-red-800 font-semibold mt-1">{{ status.sync.last_error }}</p>
@@ -158,12 +158,12 @@
       <!-- Bandeau du haut : prochaine relance + tokens + notifications -->
       <div class="flex flex-wrap items-stretch gap-3">
         <div class="flex-1 min-w-[16rem] bg-panel rounded-full px-6 py-3 flex items-center justify-between gap-3">
-          <template v-if="!status.gmail_connected">
+          <template v-if="!status.gmail_connected || status.needs_reauth">
             <p class="text-sm font-semibold">
-              {{ status.needs_reauth ? 'L\'autorisation Gmail a expiré.' : 'Gmail n\'est pas connecté.' }}
+              {{ status.needs_reauth ? 'L\'autorisation Gmail a expiré ou a été révoquée.' : 'Gmail n\'est pas connecté.' }}
               <span v-if="!status.has_client_secret" class="text-red-800">Il manque secrets/credentials.json (voir le README).</span>
             </p>
-            <a href="/auth/login" class="shrink-0 rounded-full bg-ink text-white font-bold text-sm px-4 py-2">Connecter Gmail</a>
+            <a href="/auth/login" class="shrink-0 rounded-full bg-ink text-white font-bold text-sm px-4 py-2">{{ status.needs_reauth ? 'Reconnecter Gmail' : 'Connecter Gmail' }}</a>
           </template>
           <template v-else-if="nextFollowup">
             <p class="text-sm min-w-0">

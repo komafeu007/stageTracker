@@ -57,6 +57,7 @@ def auth_callback(state: str | None = None, code: str | None = None, error: str 
         log.exception("Échec de l'échange du code OAuth")
         return _page("Connexion impossible", html.escape(str(exc)), 500)
     sync.state["needs_reauth"] = False
+    kv_set(sync.REAUTH_KEY, "0")
     try:
         kv_set("my_email", gm.get_profile(gm.get_service())["emailAddress"].lower())
     except Exception:  # noqa: BLE001
@@ -68,6 +69,8 @@ def auth_callback(state: str | None = None, code: str | None = None, error: str 
 @router.post("/auth/logout")
 def auth_logout():
     gm.disconnect()
+    sync.state["needs_reauth"] = False
+    kv_set(sync.REAUTH_KEY, "0")
     return {"ok": True}
 
 
