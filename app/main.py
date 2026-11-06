@@ -9,9 +9,10 @@ import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from . import gmail_client as gm, security, services, sync
+from . import errors, gmail_client as gm, security, services, sync
 from .api import auth, companies, cv, mail, messages, notifications, system
 from .config import settings
 from .db import get_db, init_db
@@ -80,7 +81,20 @@ def create_app() -> FastAPI:
             {"detail": "La base de données a été réparée. Recharge la page."}, status_code=503
         )
 
+    @app.exception_handler(RequestValidationError)
+    async def _invalid_request(_request: Request, exc: RequestValidationError) -> JSONResponse:
+        """422 en français, au lieu de la liste technique de FastAPI (en anglais)."""
+        log.warning("Requête invalide : %s", exc.errors())
+        fields = sorted({str(err.get("loc", ("",))[-1]) for err in exc.errors() if err.get("loc")})
+        detail = "Données invalides"
+        if fields:
+            detail += f" ({', '.join(fields)})"
+        return JSONResponse(
+            {"detail": detail + ". Vérifie le formulaire, puis réessaie."}, status_code=422
+        )
+
     security.install(app)
+    errors.install(app)  # en dernier : filet le plus externe, il explique toute erreur imprévue
     for module in (system, auth, companies, mail, messages, cv, notifications):
         app.include_router(module.router)
     return app

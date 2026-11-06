@@ -57,12 +57,24 @@ threads with a **local** model (Ollama), and drafts internship applications/foll
   `gemini_client._clean_body()` retire en plus un éventuel bloc d'en-têtes en tête de corps.
   Ne pas retirer ces règles, c'est une demande explicite de l'utilisateur.
 - Le 2e paragraphe des candidatures est repris des `exemples_valides.md` (formation, disponibilité,
-  objectif) : c'est volontaire, ne pas le faire réinventer par le modèle.
+  objectif) : c'est volontaire, ne pas le faire réinventer par le modèle. Seule la dernière phrase
+  (« ce que je peux apporter ») s'adapte au secteur de l'entreprise.
+- Le 1er paragraphe doit rester **concret** : ce que fait l'entreprise (produit, techno, projet,
+  service) et ce que ce travail **apprendrait** à l'étudiant (compétence, méthode, techno). On
+  commence par le fait, avec **l'action de l'entreprise en sujet** (« L'optimisation que vous
+  menez… »), pas par une formule d'intérêt (« je suis avec intérêt… », « … m'attire »), et on ne
+  termine jamais par « participer à vos projets » / « m'incite à vouloir… ». Les formules creuses
+  (« un environnement dans lequel je souhaite m'investir », « fait écho à ma vision ») et les
+  phrases bateau sont interdites.
 - Le projet mentionné dans la candidature est choisi selon le domaine de l'entreprise (bras
   robotique, vision, IoT, infra…), à partir du `profil.md` et du contexte du site : garder cette
   consigne dans `_application_system`/`draft_application`.
 - `company.sector` (sous-domaine IT, valeurs proposées dans `constants.SECTORS`) sert de référence
   au choix du projet dans la candidature. L'UI l'affiche en pastille et filtre la barre de gauche.
+- `company.offer` (« Offre de stage / poste visé ») est collée à la main dans la fiche entreprise.
+  Elle passe avant le contexte du site : elle fournit les faits concrets du 1er paragraphe et le
+  domaine qui détermine le projet du dernier paragraphe. Vide, elle est ignorée. Ne jamais la
+  remplir automatiquement depuis les mails.
 - Do not move classification to Gemini or drafting to Ollama. If Ollama is disabled or unreachable,
   sync falls back to keyword filtering + domain-based company naming; drafting still needs Gemini.
 

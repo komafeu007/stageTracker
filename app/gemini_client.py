@@ -6,6 +6,7 @@ est assurée par l'IA locale (local_ai). Chaque appel est journalisé dans token
 """
 import ipaddress
 import json
+import logging
 import re
 import threading
 import time
@@ -14,11 +15,13 @@ from urllib.parse import urlparse
 import httpx
 from bs4 import BeautifulSoup
 
-from . import textutils as tu
+from . import errors, textutils as tu
 from .config import settings
 from .db import get_db, now_iso
 
 API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
+
+log = logging.getLogger("stage-tracker.gemini")
 
 
 class AIError(Exception):
@@ -86,7 +89,7 @@ def _try_model(model: str, body: dict, purpose: str) -> tuple[str | None, str, b
     try:
         response = _post_model(model, body)
     except httpx.HTTPError as exc:
-        return None, f"connexion impossible ({exc})", False
+        return None, f"connexion impossible : {errors.reason(exc)}", False
 
     status = response.status_code
     if status == 400 and "thinking" in _api_error_message(response).lower() \
@@ -97,13 +100,20 @@ def _try_model(model: str, body: dict, purpose: str) -> tuple[str | None, str, b
                                         if k != "thinkingConfig"}}
         return _try_model(model, without, purpose)
     if status in (400, 401, 403):
-        raise AIError(f"Gemini a refusé la requête ({status}) : {_api_error_message(response)}")
+        # Le message brut de Google (anglais, très technique) reste dans les logs.
+        log.warning("Gemini a refusé la requête (%s) : %s", status, _api_error_message(response))
+        if status in (401, 403):
+            raise AIError("La clé Gemini a été refusée : vérifie GEMINI_API_KEY dans le fichier .env.")
+        raise AIError("Gemini a refusé la requête (données invalides). Réessaie ; si cela continue, "
+                      "essaie un autre GEMINI_MODEL.")
     if status == 429:
         return None, "quota atteint", True
     if status == 404:
         return None, "modèle introuvable", False
+    if status >= 500:
+        return None, "erreur temporaire du service", False
     if status >= 400:
-        return None, f"{status} {_api_error_message(response)}", False
+        return None, f"requête refusée ({status})", False
 
     data = response.json()
     _log_usage(purpose, model, data.get("usageMetadata", {}))
@@ -297,23 +307,48 @@ def _application_system() -> str:
 Tu rédiges des e-mails de candidature en français : naturels, sincères, concis (120 à 180 mots).
 Règles :
 - Respecte STRICTEMENT la structure du schéma de cours fourni.
-- Imite le ton et le style des exemples validés ; seul le 2e paragraphe se reprend (voir ci-dessous).
-- Le 2e paragraphe (présentation : formation, période de stage recherchée, objectif professionnel)
-  est REPRIS presque mot pour mot du 2e paragraphe des « Exemples validés ». Ne l'invente jamais et
-  n'y ajoute aucune date, école, diplôme ou expérience absents des exemples.
-- Les autres paragraphes (accroche, motivation, conclusion) restent personnalisés pour l'entreprise.
-- Style : aucun superlatif (pas de « exceptionnel », « incontournable », « passionné », « leader »,
-  « idéal »…), aucun mot rare ou compliqué. Vocabulaire simple et courant, phrases courtes.
-- Adapte le projet présenté au domaine de l'entreprise : déduis son activité (robotique et bras
-  robotiques, vision/perception, IoT et systèmes embarqués, données/IA, web, infrastructure/DevOps…)
-  du nom et du contexte fourni, puis choisis dans le profil de l'étudiant le projet qui colle le mieux
-  à ce domaine. Exemples de correspondance : bras robotique → modélisation et robotique ; vision/
-  perception → LiDAR, traitement d'images ; IoT/embarqué → capteurs, ESP32, microcontrôleurs ;
-  infra/DevOps → Docker, Proxmox, serveurs. Mentionne uniquement les projets pertinents (1 à 2) et
-  jamais un projet hors sujet ; n'invente aucun projet que le profil ne contient pas.
+- Imite le ton et le style des exemples validés, mais pas leur 1er paragraphe : celui-ci doit être
+  réécrit et concret pour chaque entreprise (voir ci-dessous).
+- 1er paragraphe (VOUS) : commence par un fait concret — ce que fait l'entreprise (produit,
+  technologie, projet, service) —, pas par une phrase d'intérêt. Mets son action en sujet de la
+  phrase : « L'optimisation que vous menez sur… », « Votre travail sur… », « Le système que vous
+  développez… », au lieu de « Je suis avec intérêt l'automatisation… ».
+  Appuie-toi sur le « Secteur » et le contexte du site : cite un produit, une technologie, un
+  projet ou un service précis, puis dis ce que ce travail t'apprendrait : une compétence, une
+  méthode ou une technologie que tu veux pratiquer.
+  Fin de paragraphe à viser, par exemple : « Votre travail sur l'automatisation des processus
+  métier pour les PME me permettrait d'apprendre l'intégration de l'IA dans des workflows réels. »
+  Interdites : « participer à vos projets », « contribuer à vos projets », « rejoindre vos
+  équipes », « m'incite à vouloir… » et toute formule où l'étudiant réclame sa place : le
+  1er paragraphe dit ce que le travail de l'entreprise lui apprend, pas qu'il veut en faire partie.
+  Formules creuses interdites : « je suis avec intérêt… », « je m'intéresse à… », « … m'attire »,
+  « … m'intéresse », « un environnement dans lequel je souhaite m'investir », « fait écho à ma
+  vision », « correspond à mes aspirations », et toute phrase bateau qui pourrait servir pour
+  n'importe quelle entreprise.
+  Si le contexte est pauvre, reste sobre : nomme le secteur et une activité précise, sans inventer.
+- 2e paragraphe (JE) : reprends des « Exemples validés » la présentation (formation, période de
+  stage recherchée, objectif professionnel) presque mot pour mot. Ne l'invente jamais et n'y ajoute
+  aucune date, école, diplôme ou expérience absents des exemples. Seule la dernière phrase
+  (« ce que je peux apporter ») s'adapte au secteur : choisis 1 à 2 compétences ou projets du
+  profil utiles à ce domaine. Le schéma montre seulement la structure : ne recopie pas sa fin
+  « développement et modélisation » si le domaine n'est pas la robotique ou la mécanique (IA, web,
+  réseau, cybersécurité, etc.).
+- 3e paragraphe (NOUS) : un seul projet concret du profil, choisi parce qu'il colle au domaine de l'entreprise.
+  Déduis son activité (robotique, vision/perception, IoT et systèmes embarqués,
+  données/IA, web, infrastructure/DevOps…) du nom, du secteur et du contexte fourni, puis choisis
+  le projet correspondant. Exemples de correspondance : bras robotique → modélisation et
+  robotique ; vision/perception → LiDAR, traitement d'images ; IoT/embarqué → capteurs, ESP32,
+  microcontrôleurs ; infra/DevOps → Docker, Proxmox, serveurs. Mentionne uniquement un projet
+  pertinent : jamais un projet hors sujet ; n'invente aucun projet que le profil ne contient pas.
 - Si un « Secteur » est renseigné dans la fiche entreprise, c'est la référence : c'est lui qui
   détermine le domaine à viser (ex. « Vision / Perception » → projet de perception ; « Robotique » →
   projet robotique).
+- Si une « Offre de stage / poste visé » est fournie, elle passe avant le contexte du site : reprends
+  dans le 1er paragraphe un élément concret de l'offre (mission, technologie, projet, produit) et
+  choisis le projet du 3e paragraphe en fonction de ce qu'elle demande. N'invente rien qui ne soit
+  ni dans l'offre, ni dans le profil.
+- Style : aucun superlatif (pas de « exceptionnel », « incontournable », « passionné », « leader »,
+  « idéal »…), aucun mot rare ou compliqué. Vocabulaire simple et courant, phrases courtes.
 - N'invente aucun fait sur l'étudiant (utilise uniquement son profil) ni sur l'entreprise
   (utilise uniquement le contexte fourni ; s'il est vide ou insuffisant, reste sobre).
 - Aucun texte entre crochets, aucun placeholder, aucun markdown. Vouvoiement.
@@ -339,18 +374,26 @@ def draft_application(company: dict, context: str) -> tuple[str, str]:
 Nom : {company['name']}
 Secteur (ce que fait l'entreprise) : {company.get('sector') or 'non renseigné'}
 Site web : {company.get('website') or 'non renseigné'}
+Offre de stage / poste visé (saisi par l'étudiant, source la plus fiable) :
+{tu.truncate(company.get('offer') or '', 4000) or '(aucune)'}
 Contexte récupéré sur le site (peut être vide ou imparfait) :
 {context or '(aucun)'}
 
 Rédige l'e-mail de candidature.
-1. Le domaine à viser est le « Secteur » ci-dessus s'il est renseigné ; sinon déduis-le du nom et du
-   contexte.
-2. Choisis dans le profil de l'étudiant le ou les projets/compétences les plus pertinents pour ce
-   domaine (ex. bras robotique → modélisation/robotique ; vision/perception → LiDAR, traitement
-   d'images ; IoT/embarqué → capteurs, ESP32 ; infra → Docker, Proxmox), et mentionne uniquement
-   ceux-là : jamais un projet hors sujet.
-3. Réutilise le 2e paragraphe des exemples validés (formation, disponibilité, objectif) sans le
-   réinventer."""
+1. 1er paragraphe : commence par un fait concret sur l'entreprise (produit, technologie, projet,
+   service), avec son action en sujet : « L'optimisation que vous menez… » plutôt que « Je suis
+   avec intérêt l'automatisation… ». Si une offre est fournie, appuie-toi d'abord sur elle (mission,
+   techno, projet annoncés). Termine par ce que ce travail t'apprendrait (compétence, méthode,
+   technologie concrète) : jamais « participer à vos projets », « contribuer à vos projets »,
+   « rejoindre vos équipes » ni « m'incite à vouloir… ».
+   Pas de formule d'intérêt (« je suis avec intérêt », « … m'attire »), pas de phrase bateau.
+2. 2e paragraphe : reprends la présentation des exemples validés (formation, disponibilité,
+   objectif), mais adapte la phrase « ce que je peux apporter » au secteur : choisis des
+   compétences ou projets du profil utiles à ce domaine, pas « modélisation 3D » par défaut.
+3. 3e paragraphe : choisis dans le profil le projet le plus pertinent pour ce domaine
+   (ex. bras robotique → modélisation/robotique ; vision/perception → LiDAR, traitement d'images ;
+   IoT/embarqué → capteurs, ESP32 ; infra → Docker, Proxmox), en te basant sur l'offre si elle en
+   précise le domaine, et mentionne uniquement celui-là : jamais un projet hors sujet."""
     data = _parse_json(generate(prompt, system=_application_system(), purpose="candidature",
                                 json_mode=True, temperature=0.6))
     subject = str(data.get("subject") or "").strip().replace("\n", " ")
@@ -400,6 +443,18 @@ Règles :
 - Renvoie uniquement le texte de ce paragraphe : pas de salutation, pas de signature, pas de numéro,
   aucun markdown, aucun texte entre crochets.
 - Garde le même rôle que le paragraphe d'origine (introduction, parcours, motivation, conclusion…).
+- Si c'est le 1er paragraphe : rends-le concret. Commence par un fait précis sur l'entreprise
+  (produit, technologie, projet, service), avec son action en sujet : « L'optimisation que vous
+  menez… » plutôt que « Je suis avec intérêt l'automatisation… ». Bannis les formules d'intérêt
+  (« je suis avec intérêt », « … m'attire »), les phrases bateau et les formules creuses du type
+  « un environnement dans lequel je souhaite m'investir » ou « fait écho à ma vision ».
+- Si c'est le 3e paragraphe : garde un seul projet du profil, celui qui colle au domaine demandé
+  par l'offre ou le secteur ; jamais un projet hors sujet.
+- Si une offre de stage / un poste visé est fourni, il passe avant le contexte du site : sers-t'en
+  pour le fait concret du 1er paragraphe et pour choisir le projet du 3e. N'invente rien qui ne
+  soit ni dans l'offre, ni dans le profil.
+- Si c'est le 2e paragraphe : garde la présentation (formation, période de stage, objectif) et
+  n'adapte que la phrase sur ce que tu peux apporter, en fonction du secteur de l'entreprise.
 - Reste cohérent avec le reste du mail fourni, sans le répéter.
 - N'invente aucun fait sur l'étudiant (utilise uniquement son profil) ni sur l'entreprise.
 - Aucun superlatif ni mot compliqué : vocabulaire simple et courant, phrases courtes. Vouvoiement.
@@ -419,6 +474,8 @@ Réponds uniquement en JSON : {"text": "nouveau paragraphe"}"""
 ## Entreprise ciblée
 Nom : {company['name']}
 Secteur (ce que fait l'entreprise) : {company.get('sector') or 'non renseigné'}
+Offre de stage / poste visé (saisi par l'étudiant, source la plus fiable) :
+{tu.truncate(company.get('offer') or '', 4000) or '(aucune)'}
 Contexte récupéré sur le site (peut être vide) :
 {context or '(aucun)'}
 
@@ -430,7 +487,16 @@ Contexte récupéré sur le site (peut être vide) :
 {f'''## Consigne de l'étudiant
 {instruction}''' if instruction.strip() else ''}
 {'''## Rappel
-C'est le 2e paragraphe : reprends une AUTRE version de ce paragraphe depuis les exemples validés.''' if second else ''}
+C'est le 2e paragraphe : garde la présentation des exemples validés (formation, période de stage,
+objectif) et n'adapte que la phrase sur ce que tu peux apporter au secteur de l'entreprise.'''
+     if second else '''## Rappel
+C'est le 1er paragraphe : il doit citer un fait concret sur l'entreprise, avec son action en
+sujet (« L'optimisation que vous menez… »), et non une formule d'intérêt (« je suis avec
+intérêt », « … m'attire »). Si une offre est fournie, pars d'un de ses éléments concrets.'''
+     if index == 0 else '''## Rappel
+C'est le 3e paragraphe : un seul projet du profil, celui qui colle au domaine de l'offre ou du
+secteur ; jamais un projet hors sujet.'''
+     if index == 2 else ''}
 Propose une nouvelle version de ce paragraphe."""
     data = _parse_json(generate(prompt, system=system, purpose="paragraphe", json_mode=True,
                                 temperature=0.7, max_tokens=2048))

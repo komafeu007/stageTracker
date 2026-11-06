@@ -3,9 +3,10 @@ import logging
 import mimetypes
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from google.auth.exceptions import TransportError
 from googleapiclient.errors import HttpError
 
-from .. import gemini_client as ai, gmail_client as gm, services, sync, textutils as tu
+from .. import errors, gemini_client as ai, gmail_client as gm, services, sync, textutils as tu
 from ..config import settings
 from ..constants import APPLICATION, DRAFT_KINDS, FOLLOWUP, REPLY
 from ..db import get_db, kv_get, now_iso, parse_iso, utcnow
@@ -180,9 +181,17 @@ def send_email(
     except gm.NotConnectedError as exc:
         raise HTTPException(401, str(exc)) from exc
     except HttpError as exc:
-        raise HTTPException(502, f"Gmail a refusé l'envoi : {exc}") from exc
+        raise HTTPException(502, f"L'e-mail n'a pas été envoyé : {errors.explain(exc)}") from exc
+    except TransportError as exc:
+        raise HTTPException(503, f"L'e-mail n'a pas été envoyé : {errors.explain(exc)}") from exc
     except ValueError as exc:
-        raise HTTPException(400, f"En-tête invalide : {exc}") from exc
+        # Message brut de la bibliothèque e-mail (anglais) : on le garde dans les logs.
+        log.warning("En-tête d'e-mail invalide : %s", exc)
+        raise HTTPException(
+            400,
+            "Un champ du mail contient un caractère interdit (retour à la ligne dans l'objet "
+            "ou l'adresse). Corrige-le, puis réessaie.",
+        ) from exc
 
     # Le mail est parti : on enregistre tout de suite le fil, puis on le relit pour mettre à jour le statut.
     with get_db() as db:

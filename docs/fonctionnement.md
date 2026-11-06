@@ -68,17 +68,27 @@ Gemini ne sert **qu'à rédiger**, à la demande :
 | Correction d'orthographe | corrige uniquement les fautes, **sans** reformuler |
 
 Le contexte du site de l'entreprise (titre, description, titres, extrait) est récupéré au
-passage pour personnaliser la candidature.
+passage pour personnaliser la candidature. Si une **offre de stage / un poste visé** est collé dans
+la fiche entreprise (`company.offer`, saisie manuelle), elle passe avant le site : c'est la source
+la plus fiable pour savoir ce que fait l'entreprise et ce que le poste demande.
 
 Règles de style imposées aux brouillons :
 
 - **aucun superlatif ni mot compliqué** (vocabulaire simple, phrases courtes) ;
 - le corps ne contient **jamais** de ligne « Objet : » ni d'en-tête : l'objet est un champ séparé
   (un nettoyage `_clean_body()` retire en plus tout bloc d'en-têtes recopié par le modèle) ;
+- le **1er paragraphe** est concret : il commence par un fait sur l'entreprise (produit,
+  technologie, projet, service), avec **son action en sujet** (« L'optimisation que vous menez… »)
+  plutôt qu'une formule d'intérêt (« je suis avec intérêt… », « … m'attire »), et sans formule
+  creuse du type « un environnement dans lequel je souhaite m'investir » ; il finit par ce que ce
+  travail **apprendrait à l'étudiant** (compétence, méthode, technologie), jamais par « participer
+  à vos projets » ou « m'incite à vouloir… » ; il s'appuie d'abord sur l'**offre de stage** quand
+  elle est renseignée ;
 - le **2e paragraphe** des candidatures reprend celui des exemples validés (formation,
-  disponibilité, objectif) plutôt que d'être réinventé ;
-- le **projet mis en avant** est choisi selon le secteur de l'entreprise (bras robotique, vision,
-  IoT, infrastructure…), à partir du profil de l'étudiant.
+  disponibilité, objectif) plutôt que d'être réinventé ; seule la phrase sur **ce que l'étudiant
+  peut apporter** est adaptée au secteur (pas « modélisation 3D » pour une entreprise d'IA) ;
+- le **projet mis en avant** est choisi selon le secteur de l'entreprise et l'**offre de stage**
+  (bras robotique, vision, IoT, infrastructure…), à partir du profil de l'étudiant.
 
 Côté fiabilité : les appels sont espacés de `AI_MIN_INTERVAL_SECONDS` (limite les erreurs 429) et
 réessayés sur 429/5xx ; si le modèle principal reste indisponible, `GEMINI_FALLBACK_MODELS` sont
@@ -88,7 +98,7 @@ Chaque appel est journalisé dans `token_log`, qui alimente la jauge de tokens.
 
 ---
 
-## 4. Secteur d'activité
+## 4. Secteur d'activité et offre de stage
 
 `company.sector` est un **champ libre**. L'interface propose des sous-domaines de l'informatique
 (`constants.SECTORS` : développement, web, mobile, robotique, vision, IA/data, embarqué/IoT,
@@ -98,6 +108,12 @@ valeur saisie.
 Il est déduit du contenu des mails (Ollama, sinon mots-clés) et **jamais écrasé** s'il a déjà une
 valeur ; `sync.backfill_sectors()` remplit les entreprises qui n'en ont pas à la fin de chaque
 synchro. Il sert à choisir le projet présenté dans la candidature et filtre la barre de gauche.
+
+`company.offer` (« Offre de stage / poste visé ») est un **texte libre saisi à la main** dans la
+modale de l'entreprise, jamais rempli ni écrasé par la synchro. Il est transmis tel quel (tronqué à
+4 000 caractères) à `draft_application` et `draft_paragraph` : l'IA y prend les faits concrets du
+1er paragraphe et le domaine qui détermine le projet du 3e paragraphe. Vide, il est ignoré et la
+rédaction retombe sur le secteur et le contexte du site.
 
 ---
 
@@ -132,7 +148,7 @@ déclarées dans `_ADDED_COLUMNS` (pas d'outil de migration).
 
 | Table | Contenu |
 |---|---|
-| `company` | entreprises (nom, site, e-mail, domaine, secteur, statut, ancre de relance…) |
+| `company` | entreprises (nom, site, e-mail, domaine, secteur, offre de stage, statut, ancre de relance…) |
 | `thread` | fils Gmail |
 | `message` | messages d'un fil (direction `in`/`out`, objet, corps, date) |
 | `draft` | brouillon édité en cours (un par entreprise) |
@@ -171,6 +187,7 @@ stageTracker/
 │   ├── local_ai.py        # classification locale (Ollama)
 │   ├── gemini_client.py   # rédaction (Gemini)
 │   ├── textutils.py       # utilitaires texte (HTML, adresses, domaines)
+│   ├── errors.py          # traduction des erreurs techniques en messages clairs
 │   ├── security.py        # mot de passe optionnel + anti-CSRF
 │   └── static/index.html  # interface (Vue 3 + Tailwind via CDN)
 ├── data/                  # ⚠️ local, non versionné (sauf modèles de prompts)
@@ -192,7 +209,36 @@ stageTracker/
 
 ---
 
-## 8. Sécurité (`app/security.py`)
+## 8. Messages d'erreur (`app/errors.py`)
+
+Aucune erreur technique n'atteint l'utilisateur telle quelle. `errors.explain(exc)` traduit
+l'exception en une phrase française qui dit ce qui s'est passé et quoi faire :
+
+- panne réseau / DNS → « Pas d'accès à Internet… » (le fameux `Temporary failure in name
+  resolution` d'un conteneur qui a gardé un ancien `/etc/resolv.conf`) ;
+- `HttpError` Google → message selon le code (401 « reconnecte Gmail », 403 quota, 429, 5xx…) ;
+- `RefreshError` → autorisation Gmail expirée, bouton « Reconnecter Gmail » ;
+- SQLite → base occupée, en lecture seule, abîmée, introuvable ;
+- `OSError` → disque plein, droits du dossier `data`… ;
+- sinon → message générique invitant à consulter les logs.
+
+Le détail brut (trace, réponse HTTP de Google, nom d'hôte) reste dans les logs
+(`docker compose logs -f`). Trois points d'application :
+
+1. `errors.install(app)` ajoute le middleware le plus externe : toute exception non prévue
+   d'une route devient un JSON `{"detail": "…"}` en 500, jamais une trace ;
+2. `sync.run_sync` écrit `errors.explain()` dans `sync.state["last_error"]`, affiché sous le
+   bouton de synchro ;
+3. les routes et clients qui composaient déjà un message (`mail.py`, `gemini_client`,
+   `local_ai`, `auth.py`) l'utilisent aussi, et les erreurs déjà rédigées en français
+   (`AIError`, `NotConnectedError`, `LocalAIError`) sont renvoyées telles quelles.
+
+Côté interface, `api()` (dans `index.html`) convertit aussi les échecs réseau du navigateur
+(« Serveur injoignable… ») et fournit un message de repli par code HTTP.
+
+---
+
+## 9. Sécurité (`app/security.py`)
 
 - ❌ **Aucun envoi automatique** : l'envoi est toujours une action de l'utilisateur.
 - 🔑 **Mot de passe optionnel** : `APP_PASSWORD` déclenche une authentification Basic.
@@ -216,7 +262,7 @@ stageTracker/
 
 ---
 
-## 9. Tests et qualité de code
+## 10. Tests et qualité de code
 
 Les tests sont **hors-ligne** : Gmail, Ollama et Gemini sont simulés.
 
@@ -237,7 +283,7 @@ lignes ≤ 120 caractères, `snake_case` / `PascalCase` / `UPPER_CASE`.
 
 ---
 
-## 10. Modifier le code
+## 11. Modifier le code
 
 Les règles à respecter (répartition Ollama/Gemini, style des brouillons, schéma, relances) sont
 résumées dans [`AGENTS.md`](../AGENTS.md), à lire avant toute modification.

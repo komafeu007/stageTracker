@@ -51,6 +51,7 @@ def company_to_dict(row) -> dict:
         "website": row["website"],
         "email": row["email"],
         "sector": row["sector"],
+        "offer": row["offer"],
         "status": status,                 # statut affiché
         "stored_status": row["status"],   # statut en base
         "status_manual": bool(row["status_manual"]),
@@ -203,15 +204,16 @@ def compute_domain(website: str | None, email: str | None) -> str | None:
 
 def create_company(db, name: str, website: str | None, email: str | None,
                    status: str = PROSPECT, summary: str | None = None,
-                   sector: str | None = None) -> int:
+                   sector: str | None = None, offer: str | None = None) -> int:
     email = (email or "").strip().lower() or None
     website = (website or "").strip() or None
     sector = (sector or "").strip() or None
+    offer = (offer or "").strip() or None
     domain = compute_domain(website, email)
     cur = db.execute(
-        "INSERT INTO company(name, website, email, domain, sector, status, summary, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (name.strip(), website, email, domain, sector, status, summary, now_iso()),
+        "INSERT INTO company(name, website, email, domain, sector, offer, status, summary, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (name.strip(), website, email, domain, sector, offer, status, summary, now_iso()),
     )
     return cur.lastrowid
 

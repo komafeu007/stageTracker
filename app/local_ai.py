@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-from . import textutils as tu
+from . import errors, textutils as tu
 from .config import settings
 from .constants import OUTCOME_NONE, OUTCOMES, SECTORS
 
@@ -71,7 +71,8 @@ def _generate(system: str, prompt: str, *, temperature: float = 0.1, max_tokens:
         response.raise_for_status()
     except httpx.HTTPError as exc:
         raise LocalAIError(
-            f"Ollama injoignable sur {settings.ollama_host} (démarre « ollama serve ») : {exc}"
+            f"Ollama injoignable sur {settings.ollama_host} ({errors.reason(exc)}). "
+            "Démarre « ollama serve », puis relance la synchro."
         ) from exc
     content = ((response.json().get("message") or {}).get("content") or "").strip()
     if not content:

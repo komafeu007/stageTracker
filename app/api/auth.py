@@ -6,7 +6,7 @@ import threading
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from .. import gmail_client as gm, sync
+from .. import errors, gmail_client as gm, sync
 from ..config import settings
 from ..db import kv_set
 
@@ -40,7 +40,8 @@ def auth_login(request: Request):
     try:
         return RedirectResponse(gm.start_login(redirect_uri))
     except Exception as exc:  # noqa: BLE001
-        return _page("Connexion Gmail impossible", html.escape(str(exc)), 500)
+        log.exception("Impossible de démarrer la connexion Gmail")
+        return _page("Connexion Gmail impossible", html.escape(errors.explain(exc)), 500)
 
 
 @router.get("/auth/callback", include_in_schema=False)
@@ -55,7 +56,7 @@ def auth_callback(state: str | None = None, code: str | None = None, error: str 
         return _page("Connexion impossible", html.escape(str(exc)), 400)
     except Exception as exc:  # noqa: BLE001
         log.exception("Échec de l'échange du code OAuth")
-        return _page("Connexion impossible", html.escape(str(exc)), 500)
+        return _page("Connexion impossible", html.escape(errors.explain(exc)), 500)
     sync.state["needs_reauth"] = False
     kv_set(sync.REAUTH_KEY, "0")
     try:

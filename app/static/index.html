@@ -251,6 +251,8 @@
               </h2>
               <p class="text-xs text-slate-700 truncate">
                 <span v-if="current.sector" :class="['inline-block align-middle mr-2 text-[11px] font-bold rounded-full px-2 py-0.5', sectorCls(current.sector)]">{{ current.sector }}</span>
+                <span v-if="current.offer" :title="current.offer"
+                      class="inline-block align-middle mr-2 text-[11px] font-bold rounded-full bg-slate-200 text-slate-700 px-2 py-0.5">Offre</span>
                 <span v-if="current.email">{{ current.email }}</span>
                 <a v-if="current.website" :href="siteUrl(current.website)" target="_blank" rel="noopener" class="underline ml-2">{{ current.website }}</a>
                 <span v-if="current.summary" class="ml-2 italic">{{ current.summary }}</span>
@@ -309,9 +311,18 @@
             </div>
           </div>
 
-          <!-- Éditeur (fixe en bas) -->
-          <div class="shrink-0 bg-white rounded-t-[1.75rem] mx-2 mb-2 rounded-b-[1.5rem] flex flex-col h-[21rem]">
-            <div class="flex flex-wrap items-center gap-2 px-5 pt-3">
+          <!-- Éditeur (fixe en bas, redimensionnable) -->
+          <div :style="{ height: editorHeight + 'px' }"
+               class="shrink-0 bg-white rounded-t-[1.75rem] mx-2 mb-2 rounded-b-[1.5rem] flex flex-col max-h-[calc(100vh-8rem)]">
+            <!-- Poignée : glisser vers le haut/bas pour agrandir/réduire l'éditeur -->
+            <div role="separator" aria-orientation="horizontal" tabindex="0"
+                 aria-label="Redimensionner la zone de rédaction"
+                 title="Glisser vers le haut ou le bas pour redimensionner"
+                 @mousedown.prevent="startEditorResize" @keydown.up.prevent="nudgeEditorHeight(24)" @keydown.down.prevent="nudgeEditorHeight(-24)"
+                 class="group flex h-4 shrink-0 cursor-ns-resize touch-none items-center justify-center focus:outline-none">
+              <span class="h-1.5 w-14 rounded-full bg-slate-300 transition-colors group-hover:bg-slate-400 group-focus-visible:bg-slate-400"></span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 px-5 pt-1">
               <span class="text-sm font-extrabold">{{ editor.kind ? kindLabel(editor.kind) : 'Nouveau message' }}</span>
               <span class="flex-1"></span>
               <button v-if="current.stored_status !== 'prospect'" @click="generateDraft('followup')" :disabled="generating"
@@ -426,6 +437,11 @@
           <option v-for="s in sectorOptions" :key="s" :value="s"></option>
         </datalist>
       </label>
+      <label class="block text-sm font-semibold">Offre de stage / poste visé (optionnel)
+        <textarea v-model="modal.form.offer" rows="4"
+                  placeholder="Colle ici l'annonce ou le poste visé : l'IA s'en sert pour parler de l'entreprise (1er paragraphe) et choisir le projet en lien (3e paragraphe)."
+                  class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal resize-y"></textarea>
+      </label>
       <label class="block text-sm font-semibold">E-mail de contact
         <input v-model="modal.form.email" type="email" placeholder="recrutement@exemple.fr" class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
       </label>
@@ -516,6 +532,19 @@ const STATUS = {
   prospect: { label: 'À contacter', cls: 'bg-white/70 text-slate-800' },
 };
 
+// Messages de repli quand le serveur ne renvoie pas de `detail` lisible.
+const HTTP_HINTS = {
+  401: 'Accès refusé : recharge la page.',
+  403: 'Action refusée par la sécurité de l\'application : recharge la page.',
+  404: 'Élément introuvable : recharge la page.',
+  413: 'Fichier trop lourd : choisis un fichier plus petit.',
+  422: 'Données invalides : vérifie les champs du formulaire, puis réessaie.',
+  429: 'Trop de requêtes : attends un instant, puis réessaie.',
+  500: 'Le serveur a rencontré un problème. Réessaie ; si cela continue, regarde les logs.',
+  502: 'Le service distant n\'a pas répondu correctement. Réessaie dans un instant.',
+  503: 'Le service est momentanément indisponible. Réessaie dans un instant.',
+};
+
 async function api(path, opts = {}) {
   const headers = { 'X-Requested-With': 'stagetracker', ...(opts.headers || {}) };
   let body = opts.body;
@@ -523,10 +552,15 @@ async function api(path, opts = {}) {
     body = JSON.stringify(body);
     headers['Content-Type'] = 'application/json';
   }
-  const res = await fetch(path, { ...opts, headers, body });
+  let res;
+  try {
+    res = await fetch(path, { ...opts, headers, body });
+  } catch (_) {
+    throw new Error('Serveur injoignable : vérifie que l\'application tourne toujours, puis recharge la page.');
+  }
   if (!res.ok) {
-    let msg = `Erreur ${res.status}`;
-    try { const j = await res.json(); msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail); } catch (_) {}
+    let msg = HTTP_HINTS[res.status] || `Erreur ${res.status} : réessaie dans un instant.`;
+    try { const j = await res.json(); if (typeof j.detail === 'string' && j.detail) msg = j.detail; } catch (_) {}
     throw new Error(msg);
   }
   return res.json();
@@ -590,6 +624,46 @@ createApp({
     const chatEl = ref(null);
     const showReplyPanel = ref(false);
     let selectToken = 0;
+
+    // ---------- hauteur de l'éditeur (redimensionnable) ----------
+    const EDITOR_MIN_HEIGHT = 240;
+    const EDITOR_DEFAULT_HEIGHT = 21 * 16;
+    const EDITOR_HEIGHT_KEY = 'stagetracker.editorHeight';
+    function savedEditorHeight() {
+      try {
+        const n = Number(window.localStorage.getItem(EDITOR_HEIGHT_KEY));
+        return Number.isFinite(n) && n >= EDITOR_MIN_HEIGHT ? n : EDITOR_DEFAULT_HEIGHT;
+      } catch (e) { return EDITOR_DEFAULT_HEIGHT; }
+    }
+    const editorHeight = ref(savedEditorHeight());
+    let resizeStart = null;
+    function editorMaxHeight() { return Math.max(EDITOR_MIN_HEIGHT, window.innerHeight - 128); }
+    function setEditorHeight(px) {
+      editorHeight.value = Math.round(Math.min(editorMaxHeight(), Math.max(EDITOR_MIN_HEIGHT, px)));
+      try { window.localStorage.setItem(EDITOR_HEIGHT_KEY, String(editorHeight.value)); } catch (e) { /* stockage indisponible */ }
+    }
+    function onEditorResizeMove(e) {
+      if (!resizeStart) return;
+      // On monte la souris pour agrandir, on la descend pour réduire.
+      setEditorHeight(resizeStart.height + (resizeStart.y - e.clientY));
+    }
+    function stopEditorResize() {
+      resizeStart = null;
+      window.removeEventListener('mousemove', onEditorResizeMove);
+      window.removeEventListener('mouseup', stopEditorResize);
+      window.removeEventListener('blur', stopEditorResize);
+      document.body.classList.remove('select-none');
+    }
+    function startEditorResize(e) {
+      if (e.button !== 0) return;
+      resizeStart = { y: e.clientY, height: editorHeight.value };
+      window.addEventListener('mousemove', onEditorResizeMove);
+      window.addEventListener('mouseup', stopEditorResize);
+      window.addEventListener('blur', stopEditorResize);
+      document.body.classList.add('select-none');
+    }
+    function nudgeEditorHeight(delta) { setEditorHeight(editorHeight.value + delta); }
+
 
     // ---------- CV ----------
     const dragging = ref(false);
@@ -878,8 +952,8 @@ createApp({
     function openModal(mode) {
       modal.mode = mode; modal.error = '';
       modal.form = mode === 'edit' && current.value
-        ? { name: current.value.name, website: current.value.website || '', email: current.value.email || '', sector: current.value.sector || '' }
-        : { name: '', website: '', email: '', sector: '' };
+        ? { name: current.value.name, website: current.value.website || '', email: current.value.email || '', sector: current.value.sector || '', offer: current.value.offer || '' }
+        : { name: '', website: '', email: '', sector: '', offer: '' };
       modal.open = true;
       nextTick(() => modalName.value && modalName.value.focus());
     }
@@ -1017,7 +1091,7 @@ createApp({
       STATUS, status, companies, notifs, nextFollowup, showTrash, showNotifs, toast,
       sectorFilter, visibleCompanies, filteredProspects, sectorOptions, sectorCls,
       selectedId, current, messages, loadingThread, generating, correcting, sending, draftExists, editor, showReplyPanel, includeCv, extraFiles,
-      editorEl, chatEl, dragging, uploadingCv, modal, modalName, toolbar,
+      editorEl, chatEl, editorHeight, startEditorResize, nudgeEditorHeight, dragging, uploadingCv, modal, modalName, toolbar,
       renaming, renameValue, renameEl, busyMove, move, moveTargets,
       paragraph,
       fmt, dateTime, ago, dayDiff, senderName, siteUrl, kindLabel,

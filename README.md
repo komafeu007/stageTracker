@@ -44,9 +44,12 @@ machine, sauf ce que tu envoies volontairement à Google (Gmail, Gemini).
   **correction d'orthographe à la demande** (corrige les fautes **sans** réécrire le contenu) et
   **révision paragraphe par paragraphe** (l'IA propose une autre version d'un seul paragraphe).
   Le style reste simple : **aucun superlatif ni mot compliqué**.
-  Le 2e paragraphe des candidatures reprend celui des exemples validés, et le projet présenté est
-  choisi selon l'activité de l'entreprise (bras robotique, vision, IoT, infrastructure…), sans
-  jamais citer un projet hors sujet.
+  Le 1er paragraphe est concret : il dit ce que fait l'entreprise et ce que ce travail apprendrait
+  à l'étudiant, sans formule vague ni « participer à vos projets ». Le 2e paragraphe reprend celui
+  des exemples validés (formation, disponibilité,
+  objectif), mais adapte la phrase sur ce que l'étudiant peut apporter au secteur de l'entreprise ;
+  le projet présenté est choisi selon son activité (bras robotique, vision, IoT, infrastructure…),
+  sans jamais citer un projet hors sujet.
 - **Relances proposées** `FOLLOWUP_DAYS` jours après **le dernier mail envoyé** (J+7 puis J+14
   par défaut), recalculées à chaque synchro ; arrêt automatique au bout de `FOLLOWUP_MAX_AGE_DAYS`.
 - **Correction manuelle** : renommer une entreprise, déplacer un mail (ou toute une
@@ -56,6 +59,9 @@ machine, sauf ce que tu envoies volontairement à Google (Gmail, Gemini).
   échangés (IA locale Ollama, sinon mots-clés), il peut être corrigé à la main. Le secteur est
   utilisé pour choisir le projet mis en avant dans la candidature, et la barre de gauche se filtre
   par secteur.
+- **Offre de stage / poste visé** : dans la fiche d'une entreprise, tu peux coller l'annonce (ou
+  décrire le poste). Elle sert de référence à l'IA pour parler concrètement de l'entreprise dans le
+  **1er paragraphe** et pour choisir le **projet en lien** dans le dernier paragraphe.
 - **Jauge de tokens**, centre de notifications, corbeille pour les faux positifs.
 - **Jamais d'envoi automatique** : tout passe par le bouton « Envoyer ».
 
@@ -304,6 +310,7 @@ Si un fichier est absent, l'application utilise un profil générique de repli.
 |--------|----|-------|
 | Renommer une entreprise | clic sur son nom | corrige un nom mal deviné par l'IA |
 | Définir le secteur | modale « Modifier l'entreprise » | range l'entreprise dans un sous-domaine IT |
+| Coller l'offre de stage | modale « Modifier l'entreprise » | l'IA s'en sert pour le 1er paragraphe et le choix du projet |
 | Filtrer la barre de gauche | liste « Secteur » en haut | n'affiche que ce secteur |
 | Déplacer un mail | bouton ⇄ sur une bulle | réaffecte **ce mail** à une autre entreprise |
 | Déplacer la conversation | bouton ⇄ dans l'en-tête | réaffecte **tous** les mails du fil |
@@ -373,6 +380,8 @@ re-analysés depuis Gmail.
 | `429` sur Gemini | Quota atteint : attends, ou laisse les modèles de repli faire le travail |
 | « Réponse IA illisible » ou texte coupé | Le modèle a tronqué sa réponse : réessaie, ou change `GEMINI_MODEL` |
 | « La base de données a été réparée. Recharge la page. » | Le fichier SQLite avait perdu son schéma : les tables ont été recréées, relance une synchro |
+| « Pas d'accès à Internet… » après une synchro (le log montre `Temporary failure in name resolution`) | Le conteneur a gardé l'ancien `/etc/resolv.conf` (souvent après un changement de réseau ou l'arrêt d'un VPN) : `docker compose restart` |
+| « Une erreur inattendue s'est produite » | Le détail technique est dans les logs : `docker compose logs -f` |
 | Erreur 403 en testant l'API | Ajoute l'en-tête `X-Requested-With: stagetracker` |
 | Page blanche | Le navigateur a besoin d'Internet (Vue et Tailwind viennent de CDN) |
 | Rien ne se met à jour | Redémarre : `.env` n'est lu qu'au démarrage |

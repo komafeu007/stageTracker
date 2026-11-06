@@ -79,6 +79,18 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(patched["sector"], "Robotique")
         self.assertIn("Vision / Perception", self.client.get("/api/status").json()["sectors"])
 
+    def test_company_offer(self):
+        offer = "Stage en vision par ordinateur : détection d'objets sur chaîne de production."
+        created = self.client.post(
+            "/api/companies", json={"name": "OfferCo", "offer": offer}, headers=CSRF).json()
+        self.assertEqual(created["offer"], offer)
+        patched = self.client.patch(
+            f"/api/companies/{created['id']}", json={"offer": "Stage en robotique mobile."}, headers=CSRF).json()
+        self.assertEqual(patched["offer"], "Stage en robotique mobile.")
+        cleared = self.client.patch(
+            f"/api/companies/{created['id']}", json={"offer": "  "}, headers=CSRF).json()
+        self.assertIsNone(cleared["offer"])
+
     def test_company_not_found(self):
         self.assertEqual(self.client.get("/api/companies/999999/thread").status_code, 404)
         self.assertEqual(self.client.patch("/api/companies/999999", json={"name": "z"}, headers=CSRF).status_code, 404)

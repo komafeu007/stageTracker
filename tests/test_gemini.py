@@ -236,6 +236,24 @@ class GeminiBodyTest(unittest.TestCase):
         self.assertIn("2e paragraphe", system)
         self.assertIn("exemples validés", system.lower())
 
+    def test_application_system_makes_first_paragraph_concrete(self):
+        system = gc._application_system().lower()
+        self.assertIn("1er paragraphe", system)
+        self.assertIn("ce que fait l'entreprise", system)
+        self.assertIn("m'investir", system)
+        self.assertIn("formules creuses interdites", system)
+
+    def test_application_system_bans_interest_formulas(self):
+        system = gc._application_system()
+        self.assertIn("je suis avec intérêt", system)
+        self.assertIn("m'attire", system)
+        self.assertIn("L'optimisation que vous menez", system)
+
+    def test_application_system_adapts_second_paragraph_to_sector(self):
+        system = gc._application_system()
+        self.assertIn("ce que je peux apporter", system)
+        self.assertIn("s'adapte au secteur", system)
+
     def test_application_system_adapts_project_to_company_domain(self):
         system = gc._application_system()
         self.assertIn("domaine de l'entreprise", system)
@@ -249,6 +267,30 @@ class GeminiBodyTest(unittest.TestCase):
              mock.patch.object(gc, "load_prompt_file", return_value=""):
             gc.draft_application({"name": "Acme", "sector": "Vision / Perception", "website": None}, "")
         self.assertIn("Vision / Perception", gen.call_args.args[0])
+
+    def test_draft_application_passes_the_offer_to_the_model(self):
+        offer = "Stage de 6 mois : vision par ordinateur sur ligne de production."
+        with mock.patch.object(gc, "generate", return_value='{"subject": "s", "body": "b"}') as gen, \
+             mock.patch.object(gc, "load_prompt_file", return_value=""):
+            gc.draft_application({"name": "Acme", "sector": None, "website": None, "offer": offer}, "")
+        prompt = gen.call_args.args[0]
+        self.assertIn(offer, prompt)
+        self.assertIn("Offre de stage / poste visé", prompt)
+
+    def test_application_system_uses_the_offer_as_reference(self):
+        system = gc._application_system()
+        self.assertIn("Offre de stage / poste visé", system)
+        self.assertIn("passe avant le contexte du site", system)
+
+    def test_draft_paragraph_passes_the_offer_to_the_model(self):
+        offer = "Stage en robotique : programmation de bras 6 axes."
+        with mock.patch.object(gc, "generate", return_value='{"text": "x"}') as gen, \
+             mock.patch.object(gc, "load_prompt_file", return_value=""):
+            gc.draft_paragraph({"name": "Acme", "sector": None, "website": None, "offer": offer},
+                               "", ["p1", "p2", "p3"], 2)
+        prompt = gen.call_args.args[0]
+        self.assertIn(offer, prompt)
+        self.assertIn("3e paragraphe", prompt)
 
     def test_application_system_forbids_superlatives_and_complex_words(self):
         system = gc._application_system().lower()
@@ -269,6 +311,15 @@ class GeminiBodyTest(unittest.TestCase):
             text = gc.draft_paragraph({"name": "Acme"}, "", ["intro", "parcours"], 1)
         self.assertEqual(text, "Nouveau paragraphe.")
         self.assertIn("exemples validés", gen.call_args.args[0].lower())
+
+    def test_draft_paragraph_first_paragraph_reminder_is_concrete(self):
+        with mock.patch.object(gc, "generate", return_value='{"text": "Nouveau paragraphe."}') as gen, \
+             mock.patch.object(gc, "load_prompt_file", return_value=""):
+            gc.draft_paragraph({"name": "Acme"}, "", ["intro", "parcours"], 0)
+        prompt = gen.call_args.args[0].lower()
+        self.assertIn("1er paragraphe", prompt)
+        self.assertIn("fait concret", prompt)
+        self.assertIn("m'attire", prompt)
 
     def test_draft_paragraph_rejects_empty_text(self):
         with mock.patch.object(gc, "generate", return_value='{"text": ""}'), \

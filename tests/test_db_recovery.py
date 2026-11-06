@@ -24,6 +24,7 @@ class SchemaRecoveryTest(unittest.TestCase):
         cols = {row["name"] for row in conn.execute("PRAGMA table_info(company)")}
         conn.close()
         self.assertIn("sector", cols)
+        self.assertIn("offer", cols)
 
     def test_schema_is_recreated_after_truncation(self):
         db.kv_set("cle", "valeur")

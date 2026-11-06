@@ -21,6 +21,7 @@ class CompanyIn(BaseModel):
     website: str | None = None
     email: str | None = None
     sector: str | None = None
+    offer: str | None = None
 
 
 class CompanyPatch(BaseModel):
@@ -28,6 +29,7 @@ class CompanyPatch(BaseModel):
     website: str | None = None
     email: str | None = None
     sector: str | None = None
+    offer: str | None = None
     status: str | None = None
 
 

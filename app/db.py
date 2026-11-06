@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS company (
     email           TEXT,
     domain          TEXT,
     sector          TEXT,                              -- ce que fait l'entreprise (sous-domaine IT)
+    offer           TEXT,                              -- offre de stage / poste visé, saisi à la main
     status          TEXT NOT NULL DEFAULT 'prospect',  -- prospect | pending | followup | replied | refused | ignored
     status_manual   INTEGER NOT NULL DEFAULT 0,        -- 1 = statut forcé par l'utilisateur
     ai_label        TEXT,                              -- refusal | positive | none (dernier mail reçu)
@@ -91,7 +92,7 @@ CREATE TABLE IF NOT EXISTS kv (
 # Colonnes ajoutées après la première version du schéma : `CREATE TABLE IF NOT EXISTS`
 # ne les ajoute pas à une base existante, on les applique donc explicitement (idempotent).
 _ADDED_COLUMNS = {
-    "company": {"sector": "TEXT"},
+    "company": {"sector": "TEXT", "offer": "TEXT"},
 }
 
 

@@ -10,7 +10,7 @@ import threading
 
 from googleapiclient.errors import HttpError
 
-from . import gmail_client as gm, local_ai, services, textutils as tu
+from . import errors, gmail_client as gm, local_ai, services, textutils as tu
 from .config import settings
 from .constants import IGNORED, PENDING
 from .db import get_db, kv_get, kv_set, now_iso
@@ -44,7 +44,7 @@ def run_sync(force_full: bool = False) -> bool:
             kv_set(REAUTH_KEY, "1")
         except Exception as exc:  # noqa: BLE001 - on affiche l'erreur à l'utilisateur
             log.exception("Erreur de synchronisation")
-            state["last_error"] = f"Erreur de synchronisation : {exc}"
+            state["last_error"] = errors.explain(exc)
         state["last_run"] = now_iso()
         return True
     finally:
