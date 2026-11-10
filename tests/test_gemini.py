@@ -330,3 +330,46 @@ class GeminiBodyTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StrategyRulesTest(unittest.TestCase):
+    """Règles qui augmentent les chances de réponse : signature, objet, lien projet, relances."""
+
+    def _settings(self, **kw):
+        return dataclasses.replace(gc.settings, **kw)
+
+    def test_signature_includes_phone_and_links_when_configured(self):
+        fake = self._settings(user_name="Jean DUPONT", user_phone="0600000000",
+                              user_links=["https://github.com/x"])
+        with mock.patch.object(gc, "settings", fake):
+            self.assertEqual(gc._signature(), "Jean DUPONT\n0600000000\nhttps://github.com/x")
+            self.assertIn("https://github.com/x", gc._application_system())
+
+    def test_signature_is_just_the_name_by_default(self):
+        fake = self._settings(user_name="Jean DUPONT", user_phone="", user_links=[])
+        with mock.patch.object(gc, "settings", fake):
+            self.assertEqual(gc._signature(), "Jean DUPONT")
+
+    def test_application_subject_follows_the_school_format(self):
+        system = gc._application_system()
+        self.assertIn("Proposition de compétences", system)
+        self.assertIn("Jamais « Candidature pour… »", system)
+        with mock.patch.object(gc, "generate", return_value='{"subject": "", "body": "b"}'), \
+             mock.patch.object(gc, "load_prompt_file", return_value=""):
+            subject, _ = gc.draft_application({"name": "A", "sector": None, "website": None}, "")
+        self.assertEqual(subject, gc.DEFAULT_SUBJECT)
+
+    def test_third_paragraph_links_project_to_company(self):
+        self.assertIn("relie le projet", gc._application_system())
+        self.assertIn("n'en invente jamais", gc._application_system())
+
+    def test_followups_bring_something_new_then_ask_for_the_right_contact(self):
+        prompts = []
+        for number in (1, 2):
+            with mock.patch.object(gc, "generate", return_value='{"body": "b"}') as gen, \
+                 mock.patch.object(gc, "load_prompt_file", return_value=""):
+                gc.draft_followup({"name": "A"}, {"subject": "s", "body": "b"}, number, "J+7", 7)
+            prompts.append(gen.call_args.args[0])
+        self.assertIn("élément nouveau", prompts[0])
+        self.assertNotIn("bon interlocuteur", prompts[0])
+        self.assertIn("bon interlocuteur", prompts[1])

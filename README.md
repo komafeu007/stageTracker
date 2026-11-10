@@ -234,6 +234,8 @@ cp .env.example .env
 | Variable | Défaut | Description |
 |----------|--------|-------------|
 | `USER_FULL_NAME` | `Prénom Nom` | Nom utilisé dans la signature des e-mails générés |
+| `USER_PHONE` | *(vide)* | Téléphone ajouté sous le nom dans la signature |
+| `USER_LINKS` | *(vide)* | Liens (GitHub, portfolio…) ajoutés à la signature, séparés par des virgules |
 | `GEMINI_API_KEY` | *(vide)* | Clé Gemini (vide = rédaction IA désactivée) |
 | `GEMINI_MODEL` | `gemini-flash-latest` | Modèle principal |
 | `GEMINI_FALLBACK_MODELS` | `gemini-2.5-flash,gemini-flash-lite-latest` | Modèles de repli (503) |

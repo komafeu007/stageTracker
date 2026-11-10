@@ -56,6 +56,12 @@ threads with a **local** model (Ollama), and drafts internship applications/foll
   mail précédent avec « Sujet : … » et non « Objet : … », sinon le modèle le recopie) ;
   `gemini_client._clean_body()` retire en plus un éventuel bloc d'en-têtes en tête de corps.
   Ne pas retirer ces règles, c'est une demande explicite de l'utilisateur.
+- **Stratégie de candidature** (demande de l'utilisateur) : objet « Proposition de compétences en <domaine> -
+  Stage BUT <durée> dès <date> » (`DEFAULT_SUBJECT` en secours) ; le 3e paragraphe finit par une phrase
+  reliant le projet à l'entreprise, puis l'URL du projet si `profil.md` en donne une (`_PROJECT_LINK_RULE`) ;
+  signature complète via `_signature()` (`USER_PHONE`, `USER_LINKS`) ; relance n°1 = un élément nouveau
+  du profil, dernière relance = demander le bon interlocuteur. La mention « 8 semaines, sans gratification
+  obligatoire » vit dans `exemples_valides.md` et est reprise avec le 2e paragraphe.
 - Le 2e paragraphe des candidatures est repris des `exemples_valides.md` (formation, disponibilité,
   objectif) : c'est volontaire, ne pas le faire réinventer par le modèle. Seule la dernière phrase
   (« ce que je peux apporter ») s'adapte au secteur de l'entreprise.

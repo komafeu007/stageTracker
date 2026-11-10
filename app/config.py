@@ -47,6 +47,8 @@ class Settings:
     ai_min_interval: float     # secondes mini entre 2 appels IA (limite le risque de 429)
 
     user_name: str
+    user_phone: str            # signature (vide = absent)
+    user_links: list[str]      # liens de signature : GitHub, portfolio…
     keywords: list[str]
     followup_days: list[int]   # ex. [7, 14]
     followup_max_age_days: int # au-delà, on ne propose plus de relance
@@ -81,6 +83,8 @@ def load_settings() -> Settings:
         token_budget=_env_int("GEMINI_MONTHLY_TOKEN_BUDGET", 1_000_000),
         ai_min_interval=_env_float("AI_MIN_INTERVAL_SECONDS", 4.0),
         user_name=_env("USER_FULL_NAME", "Prénom Nom"),
+        user_phone=_env("USER_PHONE"),
+        user_links=_env_list("USER_LINKS", ""),
         keywords=_env_list(
             "GMAIL_KEYWORDS",
             "stage,stagiaire,candidature,alternance,apprentissage,internship,recrutement",

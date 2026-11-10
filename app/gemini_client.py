@@ -302,11 +302,31 @@ def fetch_company_context(website: str | None) -> str:
 
 
 # --------------------------------------------------------------------------- fonctions métier
+DEFAULT_SUBJECT = "Proposition de compétences - Stage"
+
+# Règles communes au 3e paragraphe (candidature et réécriture d'un paragraphe).
+_PROJECT_LINK_RULE = """Termine ce paragraphe par une phrase courte qui relie le projet à ce que fait
+  l'entreprise (« C'est ce type de travail que je pourrais mener sur… »), sans formule creuse.
+  Si le profil donne un lien (URL commençant par http) pour ce projet précis, ajoute-le à la fin
+  du paragraphe ; sinon n'en mets aucun et n'en invente jamais."""
+
+
+def _signature() -> str:
+    """Bloc de signature : nom, puis téléphone et liens s'ils sont configurés."""
+    lines = [settings.user_name, settings.user_phone, *settings.user_links]
+    return "\n".join(line for line in lines if line)
+
+
 def _application_system() -> str:
     return f"""Tu es l'assistant de rédaction d'un étudiant francophone qui cherche un stage.
-Tu rédiges des e-mails de candidature en français : naturels, sincères, concis (120 à 180 mots).
+Tu rédiges des e-mails de candidature en français : naturels, sincères, concis (130 à 200 mots, signature non comprise).
 Règles :
 - Respecte STRICTEMENT la structure du schéma de cours fourni.
+- Objet (champ « subject ») : « Proposition de compétences en <domaine visé> - Stage BUT
+  <durée> dès <mois année> », avec la durée et la date de début reprises des exemples validés.
+  Jamais « Candidature pour… ».
+- Formule d'appel : « Bonjour Madame Nom, » ou « Bonjour Monsieur Nom, » uniquement si l'offre
+  nomme l'interlocuteur avec sa civilité ; sinon « Bonjour Madame, Monsieur, ».
 - Imite le ton et le style des exemples validés, mais pas leur 1er paragraphe : celui-ci doit être
   réécrit et concret pour chaque entreprise (voir ci-dessous).
 - 1er paragraphe (VOUS) : commence par un fait concret — ce que fait l'entreprise (produit,
@@ -327,8 +347,9 @@ Règles :
   n'importe quelle entreprise.
   Si le contexte est pauvre, reste sobre : nomme le secteur et une activité précise, sans inventer.
 - 2e paragraphe (JE) : reprends des « Exemples validés » la présentation (formation, période de
-  stage recherchée, objectif professionnel) presque mot pour mot. Ne l'invente jamais et n'y ajoute
-  aucune date, école, diplôme ou expérience absents des exemples. Seule la dernière phrase
+  stage recherchée, objectif professionnel) presque mot pour mot, y compris la phrase sur la
+  gratification si elle y figure. Ne l'invente jamais et n'y ajoute aucune date, école, diplôme
+  ou expérience absents des exemples. Seule la dernière phrase
   (« ce que je peux apporter ») s'adapte au secteur : choisis 1 à 2 compétences ou projets du
   profil utiles à ce domaine. Le schéma montre seulement la structure : ne recopie pas sa fin
   « développement et modélisation » si le domaine n'est pas la robotique ou la mécanique (IA, web,
@@ -340,6 +361,7 @@ Règles :
   robotique ; vision/perception → LiDAR, traitement d'images ; IoT/embarqué → capteurs, ESP32,
   microcontrôleurs ; infra/DevOps → Docker, Proxmox, serveurs. Mentionne uniquement un projet
   pertinent : jamais un projet hors sujet ; n'invente aucun projet que le profil ne contient pas.
+  {_PROJECT_LINK_RULE}
 - Si un « Secteur » est renseigné dans la fiche entreprise, c'est la référence : c'est lui qui
   détermine le domaine à viser (ex. « Vision / Perception » → projet de perception ; « Robotique » →
   projet robotique).
@@ -355,7 +377,8 @@ Règles :
 - Indique que le CV est joint à l'e-mail.
 - Le champ « body » ne contient QUE le corps du message : jamais de ligne « Objet : », jamais
   l'objet recopié, aucune en-tête ; il commence directement par la formule d'appel.
-- Termine par une formule de politesse puis la signature : {settings.user_name}
+- Termine par une formule de politesse puis cette signature, telle quelle, sur plusieurs lignes :
+{_signature()}
 Réponds uniquement en JSON :
 {{"subject": "objet de l'e-mail", "body": "texte brut, paragraphes séparés par une ligne vide"}}"""
 
@@ -393,33 +416,47 @@ Rédige l'e-mail de candidature.
 3. 3e paragraphe : choisis dans le profil le projet le plus pertinent pour ce domaine
    (ex. bras robotique → modélisation/robotique ; vision/perception → LiDAR, traitement d'images ;
    IoT/embarqué → capteurs, ESP32 ; infra → Docker, Proxmox), en te basant sur l'offre si elle en
-   précise le domaine, et mentionne uniquement celui-là : jamais un projet hors sujet."""
+   précise le domaine, et mentionne uniquement celui-là : jamais un projet hors sujet.
+   Termine-le par le lien entre ce projet et l'entreprise, puis l'URL du projet si le profil en donne une."""
     data = _parse_json(generate(prompt, system=_application_system(), purpose="candidature",
                                 json_mode=True, temperature=0.6))
     subject = str(data.get("subject") or "").strip().replace("\n", " ")
     body = _clean_body(str(data.get("body") or ""))
     if not body:
         raise AIError("L'IA n'a produit aucun texte. Réessaie.")
-    return subject or "Candidature pour un stage", body
+    return subject or DEFAULT_SUBJECT, body
+
+
+_FIRST_FOLLOWUP = """Apporte un élément nouveau et vrai : un autre projet du profil lié au secteur de
+l'entreprise (différent de celui du dernier e-mail), en une phrase, avec son lien s'il en a un dans le
+profil. Propose ensuite un court échange téléphonique ou en visio."""
+_LAST_FOLLOWUP = """C'est la dernière relance : reste très courtois. Demande simplement, si tu n'es pas
+le bon interlocuteur, à qui tu pourrais adresser ta demande de stage. Ouvre la porte à un futur échange."""
 
 
 def draft_followup(company: dict, last_sent: dict, number: int, label: str, days_since: int) -> str:
     system = f"""Tu rédiges des e-mails de relance courts et polis, en français, pour un étudiant qui cherche un stage.
-Règles : 60 à 90 mots maximum ; vouvoiement ; rappelle brièvement la candidature précédente ; réaffirme l'intérêt ;
-propose de fournir des informations complémentaires ou d'échanger ; ne culpabilise jamais le destinataire ;
-n'invente aucun fait ; aucun texte entre crochets ; aucun markdown ; le CV reste disponible en pièce jointe ;
-aucun superlatif ni mot compliqué, vocabulaire simple et courant, phrases courtes.
-Écris UNIQUEMENT le corps : aucune ligne « Objet : », aucun sujet, aucune en-tête, aucune signature
-d'e-mail ; commence directement par la formule d'appel (Madame, Monsieur,).
-Termine par une formule de politesse puis la signature : {settings.user_name}
+Règles : 60 à 90 mots maximum ; vouvoiement ; rappelle en une phrase la candidature précédente et la
+période de stage telle qu'écrite dans le dernier e-mail ; ne répète pas ce mail ; ne culpabilise jamais
+le destinataire ; n'invente aucun fait ; aucun texte entre crochets ; aucun markdown ; le CV reste
+disponible en pièce jointe ; aucun superlatif ni mot compliqué, vocabulaire simple et courant, phrases courtes.
+Pas de formule vide du type « je reste très intéressé » ou « je me permets de revenir vers vous » seule :
+chaque relance apporte quelque chose d'utile (voir la consigne de la relance).
+Écris UNIQUEMENT le corps : aucune ligne « Objet : », aucun sujet, aucune en-tête ; commence
+directement par la formule d'appel (Bonjour Madame, Monsieur,).
+Termine par une formule de politesse puis cette signature, telle quelle, sur plusieurs lignes :
+{_signature()}
 Réponds uniquement en JSON : {{"body": "texte brut, paragraphes séparés par une ligne vide"}}"""
     prompt = f"""## Profil de l'étudiant
 {load_prompt_file('profil.md')}
 
 ## Contexte
 Entreprise : {company['name']}
+Secteur : {company.get('sector') or 'non renseigné'}
 Relance n°{number} ({label}), {days_since} jours après le dernier e-mail que nous avons envoyé.
-{'C est la dernière relance : reste très courtois et ouvre la porte à un futur échange.' if number >= 2 else ''}
+
+## Consigne de cette relance
+{_LAST_FOLLOWUP if number >= 2 else _FIRST_FOLLOWUP}
 
 ## Dernier e-mail envoyé à l'entreprise (pour contexte, à ne pas recopier)
 Sujet : {last_sent.get('subject') or ''}
@@ -449,7 +486,7 @@ Règles :
   (« je suis avec intérêt », « … m'attire »), les phrases bateau et les formules creuses du type
   « un environnement dans lequel je souhaite m'investir » ou « fait écho à ma vision ».
 - Si c'est le 3e paragraphe : garde un seul projet du profil, celui qui colle au domaine demandé
-  par l'offre ou le secteur ; jamais un projet hors sujet.
+  par l'offre ou le secteur ; jamais un projet hors sujet. """ + _PROJECT_LINK_RULE + """
 - Si une offre de stage / un poste visé est fourni, il passe avant le contexte du site : sers-t'en
   pour le fait concret du 1er paragraphe et pour choisir le projet du 3e. N'invente rien qui ne
   soit ni dans l'offre, ni dans le profil.
@@ -536,9 +573,11 @@ qui cherche un stage et répond à un recruteur.
 Règles : réponds directement au message reçu ; 60 à 120 mots ; vouvoiement ; ton chaleureux et professionnel ;
 n'invente aucun fait (reste sur le contenu du message) ; aucun texte entre crochets ; aucun markdown ;
 le CV reste disponible en pièce jointe ; aucun superlatif ni mot compliqué, vocabulaire simple et courant.
-Écris UNIQUEMENT le corps : aucune ligne « Objet : », aucun sujet, aucune en-tête, aucune signature
-d'e-mail ; commence directement par la formule d'appel (Madame, Monsieur, / Bonjour,).
-Termine par une formule de politesse puis la signature : {settings.user_name}
+Si le message demande une disponibilité, accepte le principe et propose de s'adapter, sans inventer de date.
+Écris UNIQUEMENT le corps : aucune ligne « Objet : », aucun sujet, aucune en-tête ; commence directement
+par la formule d'appel (Bonjour Madame, Monsieur, / Bonjour,).
+Termine par une formule de politesse puis cette signature, telle quelle, sur plusieurs lignes :
+{_signature()}
 Réponds uniquement en JSON : {{"body": "texte brut, paragraphes séparés par une ligne vide"}}"""
     prompt = f"""## Profil de l'étudiant
 {load_prompt_file('profil.md')}

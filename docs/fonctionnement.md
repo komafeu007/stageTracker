@@ -61,11 +61,14 @@ Gemini ne sert **qu'à rédiger**, à la demande :
 
 | Ce qu'il produit | Rôle |
 |---|---|
-| Candidature | accroche + parcours + motivation + conclusion |
-| Relance | rappel court et poli de la candidature |
+| Candidature | VOUS (fait concret) + JE (parcours repris des exemples) + NOUS (un projet, relié à l'entreprise, avec son lien s'il existe) + conclusion ; objet « Proposition de compétences en … - Stage BUT … » |
+| Relance | n°1 : apporte un autre projet du profil et propose un échange ; dernière : demande à qui s'adresser |
 | Réponse | réponse au dernier message reçu |
 | Révision d'un paragraphe | réécrit **un seul** paragraphe, sans toucher aux autres |
 | Correction d'orthographe | corrige uniquement les fautes, **sans** reformuler |
+
+La signature (`USER_FULL_NAME`, puis `USER_PHONE` et `USER_LINKS` s'ils sont remplis) est fournie
+telle quelle aux prompts de candidature, relance et réponse (`gemini_client._signature`).
 
 Le contexte du site de l'entreprise (titre, description, titres, extrait) est récupéré au
 passage pour personnaliser la candidature. Si une **offre de stage / un poste visé** est collé dans
