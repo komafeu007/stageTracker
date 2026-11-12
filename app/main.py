@@ -13,7 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from . import errors, gmail_client as gm, security, services, sync
-from .api import auth, companies, cv, mail, messages, notifications, system
+from .api import auth, companies, cv, letter, mail, messages, notifications, system
 from .config import settings
 from .db import get_db, init_db
 
@@ -95,7 +95,7 @@ def create_app() -> FastAPI:
 
     security.install(app)
     errors.install(app)  # en dernier : filet le plus externe, il explique toute erreur imprévue
-    for module in (system, auth, companies, mail, messages, cv, notifications):
+    for module in (system, auth, companies, mail, letter, messages, cv, notifications):
         app.include_router(module.router)
     return app
 

@@ -398,6 +398,11 @@
                     class="btn-soft disabled:opacity-50 px-3 py-1.5 text-[13px]">
               Réviser un paragraphe
             </button>
+            <button @click="openLetter" :disabled="generating || correcting"
+                    title="Rédiger une lettre de motivation (PDF) et la joindre au mail"
+                    class="btn-soft disabled:opacity-50 px-3 py-1.5 text-[13px]">
+              Lettre de motivation
+            </button>
           </div>
 
           <div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 px-4 pt-2.5 text-sm">
@@ -537,6 +542,52 @@
       <p v-if="paragraph.error" class="text-sm font-medium text-red-700">{{ paragraph.error }}</p>
       <div class="flex justify-end">
         <button @click="paragraph.open = false" class="btn-soft px-4 py-2 text-sm">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== MODALE lettre de motivation ===================== -->
+  <div v-if="letterBox.open" class="fixed inset-0 z-50 grid place-items-center bg-zinc-900/30 backdrop-blur-sm p-4" @click.self="closeLetter">
+    <div class="w-full max-w-2xl max-h-[92vh] overflow-y-auto scroll-thin bg-white rounded-2xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="letter-title">
+      <div class="flex items-start gap-3">
+        <h3 id="letter-title" class="text-lg font-semibold flex-1">Lettre de motivation</h3>
+        <button @click="generateLetter" :disabled="letterBox.busy" class="btn-primary shrink-0 px-3 py-1.5 text-[13px] disabled:opacity-50">
+          {{ letterBox.busy === 'gen' ? 'Rédaction…' : (letterBox.body ? 'Régénérer avec l\'IA' : 'Générer avec l\'IA') }}
+        </button>
+      </div>
+      <p class="text-sm text-zinc-600">
+        Même base que le mail, plus un paragraphe sur une activité extra-universitaire (de préférence hors informatique)
+        et les qualités qu'elle t'a apportées. L'IA la prend dans <code>profil.md</code> : détaille-la là-bas pour un meilleur résultat.
+      </p>
+      <div class="rounded-xl bg-zinc-50 border border-zinc-100 px-4 py-3 text-xs text-zinc-600">
+        <span class="font-semibold text-zinc-700">Coordonnées en haut de la lettre : </span>
+        <span v-if="letterBox.sender.length">{{ letterBox.sender.join(' · ') }}</span>
+        <span v-else>aucune</span>
+        <span class="block mt-1 text-zinc-500">À régler dans <code>.env</code> : USER_FULL_NAME, USER_ADDRESS, USER_PHONE, USER_EMAIL, USER_LINKS.</span>
+      </div>
+      <div v-if="letterBox.busy === 'gen'" class="space-y-2.5" aria-busy="true" aria-live="polite">
+        <p class="text-sm text-zinc-500">L'IA rédige ta lettre…</p>
+        <div class="skeleton h-3 w-11/12"></div><div class="skeleton h-3 w-full"></div>
+        <div class="skeleton h-3 w-9/12"></div><div class="skeleton h-3 w-10/12"></div>
+      </div>
+      <template v-else>
+        <label class="block text-sm font-medium">Objet
+          <input v-model="letterBox.subject" placeholder="Candidature pour un stage…" class="field mt-1 w-full px-3 py-2 font-normal">
+        </label>
+        <label class="block text-sm font-medium">Texte (paragraphes séparés par une ligne vide)
+          <textarea v-model="letterBox.body" rows="16" placeholder="Clique sur « Générer avec l'IA » ou écris ta lettre ici."
+                    class="field mt-1 w-full px-3 py-2 font-normal text-sm leading-relaxed"></textarea>
+        </label>
+      </template>
+      <p v-if="letterBox.error" class="text-sm font-medium text-red-700">{{ letterBox.error }}</p>
+      <div class="flex flex-wrap justify-end gap-2">
+        <button @click="closeLetter" class="btn-soft px-4 py-2 text-sm">Fermer</button>
+        <button @click="downloadLetter" :disabled="!!letterBox.busy || !letterBox.body.trim()" class="btn-soft px-4 py-2 text-sm disabled:opacity-50">
+          {{ letterBox.busy === 'dl' ? 'Préparation…' : 'Télécharger le PDF' }}
+        </button>
+        <button @click="attachLetter" :disabled="!!letterBox.busy || !letterBox.body.trim()" class="btn-primary px-4 py-2 text-sm disabled:opacity-50">
+          {{ letterBox.busy === 'attach' ? 'Préparation…' : 'Joindre au mail' }}
+        </button>
       </div>
     </div>
   </div>
@@ -914,6 +965,77 @@ createApp({
       finally { paragraph.busy = -1; }
     }
 
+    // ---------- lettre de motivation (PDF joint au mail) ----------
+    const letterBox = reactive({ open: false, subject: '', body: '', sender: [], busy: '', error: '' });
+    async function openLetter() {
+      if (!current.value) return;
+      Object.assign(letterBox, { open: true, subject: '', body: '', sender: [], busy: '', error: '' });
+      try {
+        const res = await api(`/api/companies/${current.value.id}/letter`);
+        letterBox.sender = res.sender || [];
+        if (res.letter) { letterBox.subject = res.letter.subject; letterBox.body = res.letter.body; }
+        else await generateLetter();
+      } catch (e) { letterBox.error = e.message; }
+    }
+    async function generateLetter() {
+      if (!current.value) return;
+      if (letterBox.body.trim() && !window.confirm('Remplacer la lettre actuelle par une nouvelle version ?')) return;
+      letterBox.busy = 'gen'; letterBox.error = '';
+      try {
+        const res = await api(`/api/companies/${current.value.id}/letter`, { method: 'POST' });
+        letterBox.subject = res.letter.subject; letterBox.body = res.letter.body;
+        letterBox.sender = res.sender || letterBox.sender;
+      } catch (e) { letterBox.error = e.message; }
+      finally { letterBox.busy = ''; }
+    }
+    async function closeLetter() {
+      letterBox.open = false;
+      if (!current.value || letterBox.busy || !letterBox.body.trim()) return;
+      try {  // garde les retouches pour la prochaine ouverture
+        await api(`/api/companies/${current.value.id}/letter`, { method: 'PUT', body: { subject: letterBox.subject, body: letterBox.body } });
+      } catch (_) {}
+    }
+    async function letterFile() {
+      const res = await fetch(`/api/companies/${current.value.id}/letter/pdf`, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'stagetracker', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: letterBox.subject, body: letterBox.body }),
+      });
+      if (!res.ok) {
+        let msg = HTTP_HINTS[res.status] || `Erreur ${res.status} : réessaie dans un instant.`;
+        try { const j = await res.json(); if (typeof j.detail === 'string' && j.detail) msg = j.detail; } catch (_) {}
+        throw new Error(msg);
+      }
+      const name = (/filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '') || [])[1] || 'Lettre_de_motivation.pdf';
+      return new File([await res.blob()], name, { type: 'application/pdf' });
+    }
+    async function attachLetter() {
+      if (!current.value) return;
+      letterBox.busy = 'attach'; letterBox.error = '';
+      try {
+        const file = await letterFile();
+        // une seule lettre jointe : la nouvelle version remplace l'ancienne
+        extraFiles.value = extraFiles.value.filter((f) => !f.name.startsWith('Lettre_de_motivation'));
+        extraFiles.value.push(file);
+        showReplyPanel.value = true;
+        letterBox.open = false;
+        notify('Lettre de motivation jointe au mail.');
+      } catch (e) { letterBox.error = e.message; }
+      finally { letterBox.busy = ''; }
+    }
+    async function downloadLetter() {
+      if (!current.value) return;
+      letterBox.busy = 'dl'; letterBox.error = '';
+      try {
+        const file = await letterFile();
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = url; a.download = file.name; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (e) { letterBox.error = e.message; }
+      finally { letterBox.busy = ''; }
+    }
+
     async function prepareFollowup(companyId) {
       showNotifs.value = false;
       const c = [...companies.active, ...companies.prospects].find((x) => x.id === companyId);
@@ -1106,6 +1228,7 @@ createApp({
     return {
       STATUS, statusOf, statusLabel, status, companies, notifs, nextFollowup, showTrash, showNotifs, toast,
       sectorFilter, visibleCompanies, filteredProspects, sectorOptions,
+      letterBox, openLetter, generateLetter, closeLetter, attachLetter, downloadLetter,
       selectedId, current, messages, loadingThread, generating, correcting, sending, draftExists, editor, showReplyPanel, includeCv, extraFiles,
       editorEl, chatEl, editorHeight, startEditorResize, nudgeEditorHeight, dragging, uploadingCv, modal, modalName, toolbar,
       renaming, renameValue, renameEl, busyMove, move, moveTargets,

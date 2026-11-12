@@ -48,7 +48,10 @@ threads with a **local** model (Ollama), and drafts internship applications/foll
   est deviné par mots-clés (`textutils.guess_sector`).
 - **Gemini = drafting only** (`app/gemini_client.py`): application and follow-up text, plus website
   context, plus spelling-only correction of an edited draft (`correct_spelling`, ne touche pas au
-  contenu), plus réécriture d'un seul paragraphe (`draft_paragraph`). Token usage is logged to
+  contenu), plus réécriture d'un seul paragraphe (`draft_paragraph`), plus lettre de motivation
+  (`draft_cover_letter`, mise en PDF par `app/letter.py` avec fpdf2, coordonnées `USER_*` en haut).
+  Son 4e paragraphe (demande de l'utilisateur) : une activité extra-universitaire du profil, de
+  préférence hors informatique, son contexte et 1 à 3 savoir-être recherchés par la cible. Token usage is logged to
   `token_log` (exposed by `/api/tokens`; no longer shown in the UI).
 - **Style imposé aux brouillons** : aucun superlatif ni mot compliqué (vocabulaire simple, phrases
   courtes), et **jamais de ligne « Objet : »/d'en-tête dans le corps** (l'objet est un champ séparé).
@@ -88,7 +91,7 @@ threads with a **local** model (Ollama), and drafts internship applications/foll
 
 - `app/main.py` — app factory, lifespan, router wiring. Entry point.
 - `app/api/` — one router per domain: `system.py` (health/status/tokens/index), `auth.py` (OAuth +
-  `/api/sync`), `companies.py`, `mail.py` (drafts + send), `messages.py` (réaffectation manuelle d'un
+  `/api/sync`), `companies.py`, `mail.py` (drafts + send), `letter.py` (lettre de motivation : texte + PDF), `messages.py` (réaffectation manuelle d'un
   mail à une autre entreprise), `cv.py`, `notifications.py`, and `deps.py` (request models + shared
   helpers).
 - `app/security.py` — optional Basic auth + anti-CSRF middleware.

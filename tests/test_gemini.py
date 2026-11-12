@@ -62,6 +62,17 @@ class CleanBodyTest(unittest.TestCase):
             _, body = gc.draft_application({"name": "A", "sector": None, "website": None}, "")
         self.assertEqual(body, "Madame, Monsieur,")
 
+    def test_cover_letter_asks_for_an_extracurricular_paragraph(self):
+        reply = '{"subject": "Objet : Stage BUT", "body": "Madame, Monsieur,\\n\\nTexte."}'
+        with mock.patch.object(gc, "generate", return_value=reply) as gen, \
+             mock.patch.object(gc, "load_prompt_file", return_value=""):
+            subject, body = gc.draft_cover_letter({"name": "A", "sector": None, "website": None}, "")
+        self.assertEqual(subject, "Stage BUT")
+        self.assertEqual(body, "Madame, Monsieur,\n\nTexte.")
+        system = gen.call_args.kwargs["system"]
+        self.assertIn("extra-universitaire", system)
+        self.assertIn("savoir-être", system)
+
 
 class CompanyContextTest(unittest.TestCase):
     """Le contexte du site ne doit jamais viser une adresse locale ou interne (SSRF)."""

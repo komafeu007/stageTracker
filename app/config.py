@@ -49,6 +49,8 @@ class Settings:
     user_name: str
     user_phone: str            # signature (vide = absent)
     user_links: list[str]      # liens de signature : GitHub, portfolio…
+    user_email: str            # en-tête de la lettre de motivation (vide = adresse Gmail connectée)
+    user_address: str          # adresse postale de la lettre de motivation (vide = absente)
     keywords: list[str]
     followup_days: list[int]   # ex. [7, 14]
     followup_max_age_days: int # au-delà, on ne propose plus de relance
@@ -85,6 +87,8 @@ def load_settings() -> Settings:
         user_name=_env("USER_FULL_NAME", "Prénom Nom"),
         user_phone=_env("USER_PHONE"),
         user_links=_env_list("USER_LINKS", ""),
+        user_email=_env("USER_EMAIL"),
+        user_address=_env("USER_ADDRESS"),
         keywords=_env_list(
             "GMAIL_KEYWORDS",
             "stage,stagiaire,candidature,alternance,apprentissage,internship,recrutement",

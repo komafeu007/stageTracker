@@ -65,10 +65,18 @@ Gemini ne sert **qu'à rédiger**, à la demande :
 | Relance | n°1 : apporte un autre projet du profil et propose un échange ; dernière : demande à qui s'adresser |
 | Réponse | réponse au dernier message reçu |
 | Révision d'un paragraphe | réécrit **un seul** paragraphe, sans toucher aux autres |
+| Lettre de motivation | VOUS + JE + NOUS comme la candidature, puis un paragraphe **activité extra-universitaire** (de préférence hors informatique : contexte + 1 à 3 savoir-être recherchés par l'entreprise, pris dans `profil.md` uniquement) + conclusion (`draft_cover_letter`) |
 | Correction d'orthographe | corrige uniquement les fautes, **sans** reformuler |
 
 La signature (`USER_FULL_NAME`, puis `USER_PHONE` et `USER_LINKS` s'ils sont remplis) est fournie
 telle quelle aux prompts de candidature, relance et réponse (`gemini_client._signature`).
+
+La lettre de motivation est mise en page en PDF par `app/letter.py` (fpdf2, polices de base) :
+coordonnées en haut à gauche (`USER_FULL_NAME`, `USER_ADDRESS`, `USER_PHONE`, `USER_EMAIL` ou à défaut
+l'adresse Gmail, `USER_LINKS`), entreprise à droite, date, « Objet : … », corps, nom. Le texte est
+gardé dans `kv` (`letter:<id entreprise>`) ; routes `GET/POST/PUT /api/companies/{id}/letter` et
+`POST /api/companies/{id}/letter/pdf`. L'interface ajoute le PDF aux pièces jointes du mail : il
+n'est envoyé qu'au clic sur « Envoyer ».
 
 Le contexte du site de l'entreprise (titre, description, titres, extrait) est récupéré au
 passage pour personnaliser la candidature. Si une **offre de stage / un poste visé** est collé dans
@@ -158,7 +166,7 @@ déclarées dans `_ADDED_COLUMNS` (pas d'outil de migration).
 | `notification` | journal des relances/réponses à traiter |
 | `token_log` | consommation Gemini (`/api/tokens`) |
 | `skipped_thread` | fils écartés par le pré-filtre |
-| `kv` | petites valeurs de service (adresse Gmail, `history_id`, nom du CV…) |
+| `kv` | petites valeurs de service (adresse Gmail, `history_id`, nom du CV, texte des lettres de motivation…) |
 
 Sous `DATA_DIR` (par défaut `./data`, `/data` dans Docker) : la base, `cv_active.pdf`,
 `token.json`, `oauth_pending.json` (connexion Gmail en cours) et `prompts/`.

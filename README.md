@@ -43,6 +43,9 @@ machine, sauf ce que tu envoies volontairement à Google (Gmail, Gemini).
 - **Rédaction assistée (Gemini)** : brouillons de candidature, de relance et de réponse, plus
   **correction d'orthographe à la demande** (corrige les fautes **sans** réécrire le contenu) et
   **révision paragraphe par paragraphe** (l'IA propose une autre version d'un seul paragraphe).
+  Bouton **« Lettre de motivation »** : même base que le mail, plus un paragraphe sur une activité
+  extra-universitaire (de préférence hors informatique) et les savoir-être qu'elle a développés ;
+  coordonnées en haut, texte éditable, puis PDF **joint au mail** ou téléchargé.
   Le style reste simple : **aucun superlatif ni mot compliqué**.
   Le 1er paragraphe est concret : il dit ce que fait l'entreprise et ce que ce travail apprendrait
   à l'étudiant, sans formule vague ni « participer à vos projets ». Le 2e paragraphe reprend celui
@@ -236,6 +239,8 @@ cp .env.example .env
 | `USER_FULL_NAME` | `Prénom Nom` | Nom utilisé dans la signature des e-mails générés |
 | `USER_PHONE` | *(vide)* | Téléphone ajouté sous le nom dans la signature |
 | `USER_LINKS` | *(vide)* | Liens (GitHub, portfolio…) ajoutés à la signature, séparés par des virgules |
+| `USER_EMAIL` | *(vide)* | E-mail en haut de la lettre de motivation (vide = adresse Gmail connectée) |
+| `USER_ADDRESS` | *(vide)* | Adresse postale en haut de la lettre de motivation |
 | `GEMINI_API_KEY` | *(vide)* | Clé Gemini (vide = rédaction IA désactivée) |
 | `GEMINI_MODEL` | `gemini-flash-latest` | Modèle principal |
 | `GEMINI_FALLBACK_MODELS` | `gemini-2.5-flash,gemini-flash-lite-latest` | Modèles de repli (503) |
@@ -319,6 +324,7 @@ Si un fichier est absent, l'application utilise un profil générique de repli.
 | Rédiger / Régénérer | boutons de l'éditeur | brouillon Gemini (éditable) |
 | Corriger l'orthographe | bouton de l'éditeur | corrige **uniquement** les fautes, sans reformuler |
 | Réviser un paragraphe | bouton « Réviser un paragraphe » | l'IA change **un seul** paragraphe (ex. prendre un autre exemple) |
+| Lettre de motivation | bouton « Lettre de motivation » | rédige la lettre (éditable), puis « Joindre au mail » (PDF) ou « Télécharger le PDF » |
 | Répondre / Relancer | boutons de l'éditeur | brouillon adapté au contexte |
 | Ignorer / Restaurer | en-tête ou corbeille | met une entreprise à la corbeille (réversible) |
 | Envoyer | bouton de l'éditeur | **seul moyen d'envoyer un e-mail** |

@@ -5,7 +5,7 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 from app import sync
-from app.api import mail
+from app.api import letter, mail
 from app.db import kv_set
 from app.main import app
 
@@ -152,6 +152,26 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(
             self.client.post("/api/companies/999999/draft/paragraph",
                              json={"paragraphs": ["a"], "index": 0}, headers=CSRF).status_code, 404)
+
+    def test_cover_letter(self):
+        cid = self.client.post("/api/companies", json={"name": "Société Lettre"}, headers=CSRF).json()["id"]
+        self.assertIsNone(self.client.get(f"/api/companies/{cid}/letter").json()["letter"])
+        drafted = ("Stage BUT", "Madame, Monsieur,\n\nTexte.")
+        with mock.patch.object(letter.ai, "draft_cover_letter", return_value=drafted):
+            generated = self.client.post(f"/api/companies/{cid}/letter", headers=CSRF).json()
+        self.assertEqual(generated["letter"], {"subject": drafted[0], "body": drafted[1]})
+        self.assertEqual(self.client.get(f"/api/companies/{cid}/letter").json()["letter"]["subject"], "Stage BUT")
+        empty = self.client.post(f"/api/companies/{cid}/letter/pdf", json={"subject": "x", "body": " "}, headers=CSRF)
+        self.assertEqual(empty.status_code, 400)
+        pdf = self.client.post(f"/api/companies/{cid}/letter/pdf",
+                               json={"subject": "Objet modifié", "body": "Madame, « œuvre » – 10 €."}, headers=CSRF)
+        self.assertEqual(pdf.status_code, 200)
+        self.assertTrue(pdf.content.startswith(b"%PDF"))
+        self.assertIn("Lettre_de_motivation_Societe_Lettre.pdf", pdf.headers["content-disposition"])
+        # le texte retouché est conservé pour la prochaine ouverture
+        self.assertEqual(self.client.get(f"/api/companies/{cid}/letter").json()["letter"]["subject"], "Objet modifié")
+        # Gemini n'est pas configuré hors-ligne : la rédaction échoue proprement en 502.
+        self.assertEqual(self.client.post(f"/api/companies/{cid}/letter", headers=CSRF).status_code, 502)
 
 
 if __name__ == "__main__":

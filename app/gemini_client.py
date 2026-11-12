@@ -427,6 +427,81 @@ Rédige l'e-mail de candidature.
     return subject or DEFAULT_SUBJECT, body
 
 
+DEFAULT_LETTER_SUBJECT = "Candidature pour un stage"
+
+
+def _cover_letter_system() -> str:
+    return """Tu es l'assistant de rédaction d'un étudiant francophone qui cherche un stage.
+Tu rédiges le corps d'une lettre de motivation en français : naturelle, sincère, 300 à 400 mots.
+Les coordonnées, la date, le destinataire et la signature sont ajoutés à part : ne les écris pas.
+Structure, dans cet ordre, paragraphes séparés par une ligne vide :
+- Formule d'appel : « Madame, Monsieur, » (ou « Madame Nom, » / « Monsieur Nom, » si l'offre nomme
+  l'interlocuteur avec sa civilité).
+- 1er paragraphe (VOUS) : commence par un fait concret sur l'entreprise (produit, technologie,
+  projet, service), son action en sujet de la phrase (« Le système que vous développez… »), puis
+  ce que ce travail t'apprendrait. Pas de formule d'intérêt (« je suis avec intérêt… »,
+  « … m'attire »), pas de « participer à vos projets », pas de phrase bateau.
+- 2e paragraphe (JE) : la présentation des « Exemples validés » (formation, période de stage,
+  objectif, phrase sur la gratification si elle y figure), presque mot pour mot ; seule la phrase
+  « ce que je peux apporter » s'adapte au domaine de l'entreprise.
+- 3e paragraphe (NOUS) : un seul projet concret du profil, choisi selon le domaine de l'entreprise
+  (offre, secteur, contexte), terminé par une phrase qui relie ce projet à ce que fait l'entreprise.
+- 4e paragraphe (ACTIVITÉ) : développe UN exemple d'activité extra-universitaire valorisante et
+  originale (expérience professionnelle, job, loisir, sport, musique, engagement…), de préférence
+  SANS rapport avec l'informatique. Précise son contexte (quoi, depuis quand, où, avec qui, selon ce
+  que dit le profil), puis explique comment elle a développé un à trois savoir-être ou qualités
+  recherchés par cette entreprise et ce stage (rigueur, persévérance, travail en équipe, autonomie,
+  sens du contact, gestion du stress…), en reliant chaque qualité à un fait de l'activité.
+  Prends l'activité UNIQUEMENT dans le profil (centres d'intérêt, expériences, activités). N'invente
+  aucun détail (club, durée, résultat, lieu) absent du profil : si le profil reste vague, reste
+  sobre et général sur le contexte plutôt que d'inventer.
+- Conclusion : une ou deux phrases pour proposer un entretien et indiquer que le CV est joint,
+  puis une formule de politesse de lettre (« Je vous prie d'agréer, Madame, Monsieur, l'expression
+  de mes salutations distinguées. »).
+Règles :
+- Objet (champ « subject ») : court, sans « Objet : », par exemple « Candidature pour un stage
+  BUT <durée> en <domaine> dès <mois année> », durée et date reprises des exemples validés.
+- Style : aucun superlatif (« exceptionnel », « passionné », « idéal »…), aucun mot rare ou
+  compliqué ; vocabulaire simple et courant, phrases courtes. Vouvoiement.
+- N'invente aucun fait sur l'étudiant (profil uniquement) ni sur l'entreprise (contexte uniquement).
+- Aucun texte entre crochets, aucun placeholder, aucun markdown, aucune signature.
+Réponds uniquement en JSON :
+{"subject": "objet de la lettre", "body": "texte brut, paragraphes séparés par une ligne vide"}"""
+
+
+def draft_cover_letter(company: dict, context: str) -> tuple[str, str]:
+    """Rédige une lettre de motivation : (objet, corps sans coordonnées ni signature)."""
+    prompt = f"""## Profil de l'étudiant
+{load_prompt_file('profil.md')}
+
+## Schéma du cours (structure VOUS / JE / NOUS)
+{load_prompt_file('schema_cours.md')}
+
+## Exemples validés
+{load_prompt_file('exemples_valides.md')}
+
+## Entreprise ciblée
+Nom : {company['name']}
+Secteur (ce que fait l'entreprise) : {company.get('sector') or 'non renseigné'}
+Site web : {company.get('website') or 'non renseigné'}
+Offre de stage / poste visé (saisi par l'étudiant, source la plus fiable) :
+{tu.truncate(company.get('offer') or '', 4000) or '(aucune)'}
+Contexte récupéré sur le site (peut être vide ou imparfait) :
+{context or '(aucun)'}
+
+Rédige la lettre de motivation. N'oublie pas le 4e paragraphe : une activité extra-universitaire
+du profil (de préférence hors informatique), son contexte, et un à trois savoir-être qu'elle t'a
+apportés et que cette entreprise recherche."""
+    data = _parse_json(generate(prompt, system=_cover_letter_system(), purpose="lettre",
+                                json_mode=True, temperature=0.6))
+    subject = str(data.get("subject") or "").strip().replace("\n", " ")
+    subject = re.sub(r"^\s*objet\s*:\s*", "", subject, flags=re.IGNORECASE)
+    body = _clean_body(str(data.get("body") or ""))
+    if not body:
+        raise AIError("L'IA n'a produit aucun texte. Réessaie.")
+    return subject or DEFAULT_LETTER_SUBJECT, body
+
+
 _FIRST_FOLLOWUP = """Apporte un élément nouveau et vrai : un autre projet du profil lié au secteur de
 l'entreprise (différent de celui du dernier e-mail), en une phrase, avec son lien s'il en a un dans le
 profil. Propose ensuite un court échange téléphonique ou en visio."""
