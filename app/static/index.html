@@ -3,25 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stage Tracker</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23e0a8f0'/%3E%3Cpath d='M18 34l10 10 18-22' fill='none' stroke='%2314121a' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>Stages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2318181b'/%3E%3Ctext x='32' y='44' font-family='Arial' font-weight='700' font-size='34' text-anchor='middle' fill='white'%3ES%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script>
   tailwind.config = {
     theme: {
       extend: {
-        fontFamily: { sans: ['"Schibsted Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
-        colors: {
-          ink: '#14121a',
-          panel: '#c9d1dc',
-          'panel-deep': '#b4bfce',
-          lilac: '#e0a8f0',
-          'lilac-soft': '#ecc9f6',
-        },
-        borderRadius: { panel: '2rem' },
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+        colors: { ink: '#18181b' },
+        borderRadius: { panel: '1.25rem' },
       },
     },
   };
@@ -29,78 +23,200 @@
 <script src="https://cdn.jsdelivr.net/npm/vue@3.4.38/dist/vue.global.prod.js"></script>
 <style>
   [v-cloak] { display: none; }
-  html, body { background: #fbfafd; color: #14121a; }
+  /* Fond : gris clair avec quelques halos colorés flous, sur lesquels les panneaux « verre » se détachent */
+  html, body { color: #18181b; background: #eceef3; }
+  body::before {
+    content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(38rem 26rem at 82% 8%, rgba(214, 196, 232, .55), transparent 70%),
+      radial-gradient(34rem 24rem at 62% 98%, rgba(204, 226, 208, .55), transparent 70%),
+      radial-gradient(30rem 30rem at 6% 42%, rgba(196, 208, 228, .6), transparent 70%),
+      #eceef3;
+  }
+  .glass {
+    background: rgba(255, 255, 255, .55);
+    -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, .75);
+    box-shadow: 0 1px 2px rgba(24, 24, 27, .04), 0 8px 28px rgba(24, 24, 27, .06);
+  }
+  .glass-inner { background: rgba(255, 255, 255, .72); border: 1px solid rgba(255, 255, 255, .9); }
+  /* Boutons et champs communs */
+  .btn-primary { background: #18181b; color: #fff; font-weight: 600; border-radius: .6rem; transition: background .15s; }
+  .btn-primary:hover:not(:disabled) { background: #3f3f46; }
+  .btn-soft { background: #fff; border: 1px solid rgba(24, 24, 27, .1); font-weight: 600; border-radius: .6rem;
+              box-shadow: 0 1px 2px rgba(24, 24, 27, .04); transition: background .15s; }
+  .btn-soft:hover:not(:disabled) { background: #f4f4f5; }
+  .btn-ghost { border-radius: .6rem; transition: background .15s; }
+  .btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .7); }
+  .field { background: rgba(255, 255, 255, .85); border: 1px solid rgba(24, 24, 27, .1); border-radius: .6rem; }
+  .field:focus { outline: none; border-color: #a1a1aa; box-shadow: 0 0 0 3px rgba(24, 24, 27, .06); }
+  .tag { display: inline-block; font-size: 11px; font-weight: 500; line-height: 1.2; color: #52525b;
+         border: 1px solid rgba(24, 24, 27, .14); border-radius: .4rem; padding: .15rem .4rem; background: rgba(255, 255, 255, .5); }
   /* Éditeur riche : Tailwind remet à zéro les listes et paragraphes, on les rétablit */
-  .editor:empty::before { content: attr(data-placeholder); color: #8a8f9c; pointer-events: none; }
+  .editor:empty::before { content: attr(data-placeholder); color: #a1a1aa; pointer-events: none; }
   .editor p { margin: 0 0 .75em; }
   .editor ul { list-style: disc; padding-left: 1.4em; margin: 0 0 .75em; }
   .editor ol { list-style: decimal; padding-left: 1.4em; margin: 0 0 .75em; }
-  .editor a { color: #6d28d9; text-decoration: underline; }
+  .editor a { color: #4f46e5; text-decoration: underline; }
   .editor:focus { outline: none; }
   /* Squelette de chargement pendant la réflexion de l'IA */
   @keyframes shimmer { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
   .skeleton {
-    background: linear-gradient(90deg, #e3e7ee 25%, #f3f5f9 45%, #e3e7ee 65%);
-    background-size: 240% 100%; animation: shimmer 1.4s linear infinite; border-radius: .6rem;
+    background: linear-gradient(90deg, #e9eaee 25%, #f5f6f8 45%, #e9eaee 65%);
+    background-size: 240% 100%; animation: shimmer 1.4s linear infinite; border-radius: .4rem;
   }
   @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
-  .scroll-thin { scrollbar-width: thin; scrollbar-color: #9aa6b8 transparent; }
-  :focus-visible { outline: 3px solid #6d28d9; outline-offset: 2px; }
+  .scroll-thin { scrollbar-width: thin; scrollbar-color: #c4c7cf transparent; }
+  :focus-visible { outline: 2px solid #18181b; outline-offset: 2px; }
 </style>
 </head>
 
 <body class="font-sans antialiased">
-<div id="app" v-cloak class="p-3 lg:p-4 lg:h-screen">
-  <div class="grid grid-cols-1 lg:grid-cols-[22rem_minmax(0,1fr)] gap-4 lg:h-full">
+<div id="app" v-cloak class="p-3 lg:p-5 lg:h-screen flex flex-col gap-4">
+
+  <!-- ===================== BARRE DU HAUT ===================== -->
+  <header class="glass shrink-0 rounded-panel p-2.5 flex flex-wrap items-center gap-3">
+    <div class="flex items-center gap-2.5 pl-1.5">
+      <span class="size-8 rounded-lg bg-ink text-white grid place-items-center text-sm font-bold">S</span>
+      <span class="text-[15px] font-semibold">Stages</span>
+    </div>
+    <span class="hidden sm:block h-6 w-px bg-ink/10"></span>
+
+    <!-- Filtre par secteur d'activité -->
+    <div class="flex items-center gap-2">
+      <label for="sector-filter" class="text-sm text-zinc-600">Secteur</label>
+      <select id="sector-filter" v-model="sectorFilter" class="field w-36 sm:w-44 px-3 py-2 text-sm">
+        <option value="">Tous</option>
+        <option v-for="s in sectorOptions" :key="s" :value="s">{{ s }}</option>
+      </select>
+      <button v-if="sectorFilter" @click="sectorFilter = ''" title="Retirer le filtre" aria-label="Retirer le filtre"
+              class="btn-ghost size-8 grid place-items-center text-zinc-500">
+        <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+
+    <!-- Prochaine relance (ou connexion Gmail) -->
+    <div class="glass-inner flex-1 min-w-[18rem] rounded-xl pl-4 pr-1.5 py-1.5 flex items-center justify-between gap-3 min-h-[2.75rem]">
+      <template v-if="!status.gmail_connected || status.needs_reauth">
+        <p class="text-sm min-w-0 flex items-center gap-2.5">
+          <span class="size-2 shrink-0 rounded-full bg-red-500"></span>
+          <span>
+            <span class="font-semibold">{{ status.needs_reauth ? 'L\'autorisation Gmail a expiré ou a été révoquée.' : 'Gmail n\'est pas connecté.' }}</span>
+            <span v-if="!status.has_client_secret" class="text-red-700"> Il manque secrets/credentials.json (voir le README).</span>
+          </span>
+        </p>
+        <a href="/auth/login" class="btn-primary shrink-0 text-sm px-4 py-2">{{ status.needs_reauth ? 'Reconnecter Gmail' : 'Connecter Gmail' }}</a>
+      </template>
+      <template v-else-if="nextFollowup">
+        <p class="text-sm min-w-0 flex items-center gap-2.5">
+          <span :class="['size-2 shrink-0 rounded-full', nextFollowup.overdue ? 'bg-red-500' : 'bg-amber-500']"></span>
+          <span class="truncate">
+            <span class="font-semibold">Prochaine relance : {{ nextFollowup.name }}</span>
+            <span class="text-zinc-600"> · {{ nextFollowup.label }},
+              {{ nextFollowup.overdue ? 'en retard de ' + dayDiff(nextFollowup.due_at) : 'dans ' + dayDiff(nextFollowup.due_at) }}</span>
+          </span>
+        </p>
+        <button @click="prepareFollowup(nextFollowup.company_id)" class="btn-primary shrink-0 text-sm px-4 py-2">Préparer la relance</button>
+      </template>
+      <p v-else class="text-sm text-zinc-600 flex items-center gap-2.5 py-2">
+        <span class="size-2 shrink-0 rounded-full bg-emerald-500"></span>Aucune relance à faire pour le moment.
+      </p>
+    </div>
+
+    <!-- CV actif : glisser-déposer ou bouton -->
+    <div @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="onDropCv"
+         :class="['rounded-xl border border-dashed pl-3 pr-1.5 py-1.5 flex items-center gap-3 transition-colors min-w-0',
+                  dragging ? 'border-ink bg-white' : 'border-ink/20 bg-white/40']">
+      <svg viewBox="0 0 24 24" class="size-4 shrink-0 text-zinc-500" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+      <div class="min-w-0 leading-tight">
+        <a v-if="status.cv.exists" href="/api/cv/download" target="_blank" rel="noopener"
+           class="block text-[13px] font-semibold truncate max-w-[14rem] hover:underline">{{ status.cv.filename }}</a>
+        <span v-else class="block text-[13px] font-semibold text-red-700">Aucun CV importé</span>
+        <span class="block text-xs text-zinc-500 truncate max-w-[14rem]">
+          <template v-if="status.cv.exists">Mis à jour {{ ago(status.cv.updated_at) }} · </template>glisse un PDF ici
+        </span>
+      </div>
+      <label class="btn-soft shrink-0 text-sm px-3 py-1.5 cursor-pointer flex items-center gap-1.5">
+        <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
+        {{ uploadingCv ? 'Import…' : (status.cv.exists ? 'Remplacer' : 'Importer') }}
+        <input type="file" accept="application/pdf,.pdf" class="sr-only" @change="onPickCv">
+      </label>
+    </div>
+
+    <!-- Cloche -->
+    <div class="relative">
+      <button @click="toggleNotifs" :aria-label="'Notifications, ' + notifs.unread + ' non lues'"
+              class="glass-inner size-11 rounded-xl grid place-items-center relative hover:bg-white">
+        <svg viewBox="0 0 24 24" class="size-[18px]" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+        <span v-if="notifs.unread" class="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-semibold grid place-items-center">{{ notifs.unread }}</span>
+      </button>
+      <div v-if="showNotifs" class="fixed inset-0 z-30" @click="showNotifs = false"></div>
+      <div v-if="showNotifs" class="absolute right-0 top-full mt-2 z-40 w-[22rem] max-w-[90vw] bg-white rounded-2xl shadow-xl ring-1 ring-black/5 overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
+          <h3 class="font-semibold">Notifications</h3>
+          <button v-if="notifs.unread" @click="markAllRead" class="text-sm text-zinc-600 hover:text-ink">Tout marquer comme lu</button>
+        </div>
+        <ul class="max-h-80 overflow-y-auto scroll-thin">
+          <li v-for="n in notifs.items" :key="n.id">
+            <button @click="openNotification(n)" class="w-full text-left px-4 py-3 hover:bg-zinc-50 flex gap-3 items-start">
+              <span :class="['mt-1.5 size-2 rounded-full shrink-0', n.is_read ? 'bg-zinc-300' : (n.type === 'followup' ? 'bg-amber-500' : 'bg-emerald-500')]"></span>
+              <span class="min-w-0">
+                <span :class="['block text-sm', n.is_read ? 'text-zinc-500' : 'font-medium']">{{ n.message }}</span>
+                <span class="block text-xs text-zinc-400">{{ ago(n.created_at) }}</span>
+              </span>
+            </button>
+          </li>
+          <li v-if="!notifs.items.length" class="px-4 py-8 text-center text-sm text-zinc-500">Rien à signaler.</li>
+        </ul>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid grid-cols-1 lg:grid-cols-[20.5rem_minmax(0,1fr)] gap-4 lg:flex-1 lg:min-h-0">
 
     <!-- ===================== COLONNE GAUCHE ===================== -->
-    <aside class="flex flex-col gap-4 min-h-0 lg:h-full">
-
-      <!-- Filtre par secteur d'activité -->
-      <div class="shrink-0 bg-panel rounded-full px-4 py-2 flex items-center gap-2">
-        <label for="sector-filter" class="shrink-0 text-sm font-bold">Secteur</label>
-        <select id="sector-filter" v-model="sectorFilter"
-                class="min-w-0 flex-1 rounded-full bg-white px-3 py-1.5 text-sm font-semibold border-0">
-          <option value="">Tous</option>
-          <option v-for="s in sectorOptions" :key="s" :value="s">{{ s }}</option>
-        </select>
-        <button v-if="sectorFilter" @click="sectorFilter = ''" title="Retirer le filtre" aria-label="Retirer le filtre"
-                class="shrink-0 size-7 rounded-full bg-white/70 hover:bg-white grid place-items-center font-extrabold">×</button>
-      </div>
+    <aside class="flex flex-col gap-4 min-h-0">
 
       <!-- Candidatures en cours -->
-      <section class="bg-panel rounded-panel flex flex-col min-h-[18rem] lg:min-h-0 lg:flex-[1.15] overflow-hidden">
-        <header class="flex items-center justify-between gap-2 px-6 pt-5 pb-2">
-          <h2 class="text-lg font-extrabold">{{ showTrash ? 'Corbeille' : 'Candidatures' }}</h2>
-          <button @click="showTrash = !showTrash"
-                  class="text-sm font-semibold rounded-full px-3 py-1 hover:bg-white/50">
+      <section class="glass rounded-panel flex flex-col min-h-[18rem] lg:min-h-0 lg:flex-[1.15] overflow-hidden">
+        <header class="flex items-center justify-between gap-2 px-5 pt-4 pb-2">
+          <h2 class="text-[15px] font-semibold">
+            {{ showTrash ? 'Corbeille' : 'Candidatures' }}<span class="font-normal text-zinc-500"> · {{ visibleCompanies.length }}</span>
+          </h2>
+          <button @click="showTrash = !showTrash" class="btn-ghost text-sm text-zinc-600 px-2 py-1 flex items-center gap-1.5">
+            <svg v-if="!showTrash" viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>
+            <svg v-else viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
             {{ showTrash ? 'Retour' : 'Corbeille (' + companies.trash.length + ')' }}
           </button>
         </header>
 
-        <ul class="flex-1 min-h-0 overflow-y-auto scroll-thin px-3 pb-2 space-y-2.5">
+        <ul class="flex-1 min-h-0 overflow-y-auto scroll-thin px-2 pb-2 space-y-0.5">
           <li v-for="c in visibleCompanies" :key="c.id">
             <button v-if="!showTrash" @click="selectCompany(c)"
-                    :class="['w-full flex items-center justify-between gap-3 rounded-full px-5 py-3.5 text-left transition-colors',
-                             selectedId === c.id ? 'bg-lilac ring-2 ring-ink' : 'bg-lilac-soft hover:bg-lilac']">
+                    :class="['w-full flex items-start justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
+                             selectedId === c.id ? 'bg-white/85 shadow-sm' : 'hover:bg-white/50']">
               <span class="min-w-0 flex-1">
-                <span class="block text-lg font-extrabold leading-tight truncate">{{ c.name }}</span>
-                <span v-if="c.sector" :class="['inline-block mt-0.5 text-[11px] font-bold rounded-full px-2 py-0.5', sectorCls(c.sector)]">{{ c.sector }}</span>
+                <span class="flex items-center gap-2 min-w-0">
+                  <span class="text-sm font-semibold truncate">{{ c.name }}</span>
+                  <span v-if="c.sector && selectedId !== c.id" class="tag shrink-[4] min-w-[2.5rem] max-w-[7rem] truncate">{{ c.sector }}</span>
+                </span>
+                <span v-if="selectedId === c.id && (c.summary || c.sector)" class="block mt-0.5 text-xs text-zinc-500 line-clamp-2">
+                  {{ [c.sector, c.summary].filter(Boolean).join(' · ') }}
+                </span>
               </span>
-              <span :class="['shrink-0 text-xs font-bold rounded-full px-2.5 py-1', STATUS[c.status]?.cls]">
-                {{ STATUS[c.status]?.label || c.status }}
+              <span :class="['shrink-0 mt-0.5 flex items-center gap-1.5 text-xs', statusOf(c).text]">
+                <span :class="['size-1.5 rounded-full', statusOf(c).dot]"></span>{{ statusLabel(c) }}
               </span>
             </button>
-            <div v-else class="flex items-center justify-between gap-3 rounded-full bg-white/60 px-5 py-3">
-              <span class="min-w-0 flex-1">
-                <span class="block font-bold truncate">{{ c.name }}</span>
-                <span v-if="c.sector" :class="['inline-block mt-0.5 text-[11px] font-bold rounded-full px-2 py-0.5', sectorCls(c.sector)]">{{ c.sector }}</span>
+            <div v-else class="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 hover:bg-white/50">
+              <span class="min-w-0 flex-1 flex items-center gap-2">
+                <span class="text-sm font-semibold truncate">{{ c.name }}</span>
+                <span v-if="c.sector" class="tag shrink-[4] min-w-[2.5rem] max-w-[7rem] truncate">{{ c.sector }}</span>
               </span>
-              <button @click="restoreCompany(c)" class="shrink-0 text-sm font-bold rounded-full bg-ink text-white px-3 py-1">Restaurer</button>
+              <button @click="restoreCompany(c)" class="btn-soft shrink-0 text-xs px-2.5 py-1">Restaurer</button>
             </div>
           </li>
-          <li v-if="!visibleCompanies.length"
-              class="px-4 py-6 text-center text-sm text-slate-700">
+          <li v-if="!visibleCompanies.length" class="px-4 py-6 text-center text-sm text-zinc-500">
             <template v-if="sectorFilter">Aucune entreprise dans ce secteur.</template>
             <template v-else-if="showTrash">La corbeille est vide.</template>
             <template v-else-if="status.sync.running">Import de ta boîte Gmail en cours…</template>
@@ -109,414 +225,326 @@
           </li>
         </ul>
 
-        <footer class="px-6 py-3 text-center">
-          <p class="font-bold text-sm">Tous les mails de stage de la boîte Gmail</p>
-          <p class="text-xs text-slate-700 mt-0.5" aria-live="polite">
-            <template v-if="status.sync.running">
-              Synchronisation {{ status.sync.mode === 'full' ? 'complète' : '' }}
-              <template v-if="status.sync.total">({{ status.sync.done }}/{{ status.sync.total }})</template>…
-            </template>
-            <template v-else-if="status.sync.last_run">Dernière synchro {{ ago(status.sync.last_run) }}</template>
-            <template v-else>Pas encore synchronisé</template>
-            <button v-if="status.gmail_connected && !status.needs_reauth && !status.sync.running" @click="syncNow(false)"
-                    class="ml-1 underline font-semibold">Synchroniser</button>
-          </p>
-          <p v-if="status.sync.last_error" class="text-xs text-red-800 font-semibold mt-1">{{ status.sync.last_error }}</p>
+        <footer class="border-t border-ink/5 px-5 py-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-xs text-zinc-500 min-w-0 truncate" aria-live="polite">
+              Gmail ·
+              <template v-if="status.sync.running">
+                synchro {{ status.sync.mode === 'full' ? 'complète ' : '' }}en cours<template v-if="status.sync.total"> ({{ status.sync.done }}/{{ status.sync.total }})</template>…
+              </template>
+              <template v-else-if="status.sync.last_run">synchro {{ ago(status.sync.last_run) }}</template>
+              <template v-else>pas encore synchronisé</template>
+            </p>
+            <button v-if="status.gmail_connected && !status.needs_reauth" @click="syncNow(false)" :disabled="status.sync.running"
+                    class="btn-soft shrink-0 text-[13px] px-2.5 py-1.5 flex items-center gap-1.5 disabled:opacity-50">
+              <svg viewBox="0 0 24 24" :class="['size-3.5', status.sync.running && 'animate-spin']" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg>
+              Synchroniser
+            </button>
+          </div>
+          <p v-if="status.sync.last_error" class="text-xs text-red-700 font-medium mt-1">{{ status.sync.last_error }}</p>
         </footer>
       </section>
 
       <!-- Entreprises susceptibles d'être contactées -->
-      <section class="bg-panel rounded-panel flex flex-col min-h-[14rem] lg:min-h-0 lg:flex-1 overflow-hidden">
-        <header class="flex items-center justify-between gap-2 px-6 pt-5 pb-2">
-          <h2 class="text-lg font-extrabold leading-tight">Entreprises susceptibles d'être contactées</h2>
+      <section class="glass rounded-panel flex flex-col min-h-[14rem] lg:min-h-0 lg:flex-1 overflow-hidden">
+        <header class="flex items-center justify-between gap-2 px-5 pt-4 pb-2">
+          <h2 class="text-[15px] font-semibold">
+            À contacter<span v-if="filteredProspects.length" class="font-normal text-zinc-500"> · {{ filteredProspects.length }}</span>
+          </h2>
           <button @click="openModal('add')" aria-label="Ajouter une entreprise à contacter" title="Ajouter une entreprise"
-                  class="shrink-0 size-11 rounded-full bg-ink text-white grid place-items-center hover:scale-105 transition-transform">
-            <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                  class="btn-primary shrink-0 size-10 grid place-items-center">
+            <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           </button>
         </header>
-        <ul class="flex-1 min-h-0 overflow-y-auto scroll-thin px-3 pb-3 space-y-2">
+        <ul class="flex-1 min-h-0 overflow-y-auto scroll-thin px-2 pb-2 space-y-0.5">
           <li v-for="c in filteredProspects" :key="c.id">
             <button @click="selectCompany(c)"
-                    :class="['w-full rounded-3xl px-5 py-3 text-left transition-colors',
-                             selectedId === c.id ? 'bg-white ring-2 ring-ink' : 'bg-white/60 hover:bg-white']">
-              <span class="block font-bold truncate">{{ c.name }}</span>
-              <span class="block text-xs text-slate-600 truncate">{{ c.email || c.website || 'Pas d\'adresse renseignée' }}</span>
-              <span v-if="c.sector" :class="['inline-block mt-1 text-[11px] font-bold rounded-full px-2 py-0.5', sectorCls(c.sector)]">{{ c.sector }}</span>
+                    :class="['w-full rounded-xl px-3 py-2.5 text-left transition-colors',
+                             selectedId === c.id ? 'bg-white/85 shadow-sm' : 'hover:bg-white/50']">
+              <span class="flex items-center gap-2 min-w-0">
+                <span class="text-sm font-semibold truncate">{{ c.name }}</span>
+                <span v-if="c.sector" class="tag shrink-[4] min-w-[2.5rem] max-w-[7rem] truncate">{{ c.sector }}</span>
+              </span>
+              <span class="block text-xs text-zinc-500 truncate mt-0.5">{{ c.email || c.website || 'Pas d\'adresse renseignée' }}</span>
             </button>
           </li>
-          <li v-if="!filteredProspects.length" class="px-4 py-6 text-center text-sm text-slate-700">
+          <li v-if="!filteredProspects.length" class="h-full grid place-items-center px-6 py-6 text-center text-sm text-zinc-500">
             <template v-if="sectorFilter">Aucune entreprise dans ce secteur.</template>
-            <template v-else>Ajoute une entreprise avec le bouton +, puis clique dessus : l'IA prépare ton e-mail.</template>
+            <template v-else>Ajoute une entreprise avec +, puis clique dessus : l'IA prépare ton e-mail.</template>
           </li>
         </ul>
       </section>
     </aside>
 
-    <!-- ===================== COLONNE DROITE ===================== -->
-    <main class="grid grid-rows-[auto_minmax(0,1fr)_auto] gap-4 min-h-0 lg:h-full">
+    <!-- ===================== ZONE CENTRALE ===================== -->
+    <main class="glass rounded-panel flex flex-col min-h-[34rem] lg:min-h-0 overflow-hidden">
 
-      <!-- Bandeau du haut : prochaine relance + tokens + notifications -->
-      <div class="flex flex-wrap items-stretch gap-3">
-        <div class="flex-1 min-w-[16rem] bg-panel rounded-full px-6 py-3 flex items-center justify-between gap-3">
-          <template v-if="!status.gmail_connected || status.needs_reauth">
-            <p class="text-sm font-semibold">
-              {{ status.needs_reauth ? 'L\'autorisation Gmail a expiré ou a été révoquée.' : 'Gmail n\'est pas connecté.' }}
-              <span v-if="!status.has_client_secret" class="text-red-800">Il manque secrets/credentials.json (voir le README).</span>
-            </p>
-            <a href="/auth/login" class="shrink-0 rounded-full bg-ink text-white font-bold text-sm px-4 py-2">{{ status.needs_reauth ? 'Reconnecter Gmail' : 'Connecter Gmail' }}</a>
-          </template>
-          <template v-else-if="nextFollowup">
-            <p class="text-sm min-w-0">
-              <span class="font-extrabold text-base">Prochaine relance : {{ nextFollowup.name }}</span>
-              <span class="text-slate-700"> — relance {{ nextFollowup.label }},
-                {{ nextFollowup.overdue ? 'en retard de ' + dayDiff(nextFollowup.due_at) : 'dans ' + dayDiff(nextFollowup.due_at) }}</span>
-            </p>
-            <button @click="prepareFollowup(nextFollowup.company_id)"
-                    class="shrink-0 rounded-full bg-ink text-white font-bold text-sm px-4 py-2">Préparer la relance</button>
-          </template>
-          <p v-else class="text-sm font-semibold">Aucune relance à faire pour le moment.</p>
-        </div>
-
-        <!-- Jauge de tokens -->
-        <div class="bg-panel rounded-full px-5 py-2.5 flex items-center gap-3 min-w-[13rem]"
-             :title="'Modèle : ' + status.tokens.model + '. Budget mensuel indicatif : ' + fmt(status.tokens.budget) + ' tokens.'">
-          <div class="flex-1">
-            <div class="flex items-baseline justify-between gap-2 text-xs font-bold">
-              <span>{{ status.ai_enabled ? 'Tokens IA' : 'IA désactivée' }}</span>
-              <span>{{ fmt(status.tokens.month_tokens) }} / {{ fmt(status.tokens.budget) }}</span>
-            </div>
-            <div class="mt-1 h-2 rounded-full bg-white/70 overflow-hidden" role="progressbar"
-                 :aria-valuenow="status.tokens.percent" aria-valuemin="0" aria-valuemax="100" aria-label="Consommation de tokens du mois">
-              <div class="h-full rounded-full transition-all"
-                   :class="status.tokens.percent > 90 ? 'bg-red-600' : status.tokens.percent > 70 ? 'bg-amber-500' : 'bg-ink'"
-                   :style="{ width: Math.min(100, status.tokens.percent) + '%' }"></div>
-            </div>
-            <p class="text-[11px] text-slate-700 mt-1">{{ status.tokens.month_requests }} requêtes ce mois, {{ status.tokens.today_requests }} aujourd'hui</p>
-          </div>
-        </div>
-
-        <!-- Cloche -->
-        <div class="relative">
-          <button @click="toggleNotifs" :aria-label="'Notifications, ' + notifs.unread + ' non lues'"
-                  class="h-full aspect-square min-w-14 bg-panel rounded-full grid place-items-center relative hover:bg-panel-deep">
-            <svg viewBox="0 0 24 24" class="size-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
-            <span v-if="notifs.unread" class="absolute -top-1 -right-1 min-w-6 h-6 px-1.5 rounded-full bg-red-600 text-white text-xs font-extrabold grid place-items-center">{{ notifs.unread }}</span>
-          </button>
-          <div v-if="showNotifs" class="fixed inset-0 z-30" @click="showNotifs = false"></div>
-          <div v-if="showNotifs" class="absolute right-0 top-full mt-2 z-40 w-[22rem] max-w-[90vw] bg-white rounded-3xl shadow-xl ring-1 ring-black/10 overflow-hidden">
-            <div class="flex items-center justify-between px-5 py-3 border-b border-slate-200">
-              <h3 class="font-extrabold">Notifications</h3>
-              <button v-if="notifs.unread" @click="markAllRead" class="text-sm font-semibold underline">Tout marquer comme lu</button>
-            </div>
-            <ul class="max-h-80 overflow-y-auto scroll-thin">
-              <li v-for="n in notifs.items" :key="n.id">
-                <button @click="openNotification(n)" class="w-full text-left px-5 py-3 hover:bg-slate-50 flex gap-3 items-start">
-                  <span :class="['mt-1.5 size-2.5 rounded-full shrink-0', n.is_read ? 'bg-slate-300' : (n.type === 'followup' ? 'bg-red-600' : 'bg-emerald-600')]"></span>
-                  <span class="min-w-0">
-                    <span :class="['block text-sm', n.is_read ? 'text-slate-600' : 'font-bold']">{{ n.message }}</span>
-                    <span class="block text-xs text-slate-500">{{ ago(n.created_at) }}</span>
-                  </span>
-                </button>
-              </li>
-              <li v-if="!notifs.items.length" class="px-5 py-8 text-center text-sm text-slate-600">Rien à signaler.</li>
-            </ul>
-          </div>
+      <!-- Aucune sélection -->
+      <div v-if="!current" class="flex-1 grid place-items-center p-8 text-center">
+        <div class="max-w-md flex flex-col items-center">
+          <span class="size-14 rounded-2xl bg-white shadow-sm grid place-items-center mb-5">
+            <svg viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+          </span>
+          <h2 class="text-xl font-semibold">Choisis une entreprise</h2>
+          <p class="mt-2 text-[15px] text-zinc-600 leading-relaxed">Clique sur une candidature pour relire l'échange complet, ou sur une entreprise à contacter pour que l'IA prépare ton e-mail.</p>
+          <p class="mt-4 text-[13px] text-zinc-500">Rien n'est envoyé sans ton clic sur « Envoyer ».</p>
         </div>
       </div>
 
-      <!-- Zone centrale : conversation (haut) + éditeur (bas, fixe) -->
-      <section class="bg-panel rounded-panel flex flex-col min-h-[34rem] lg:min-h-0 overflow-hidden">
-
-        <!-- Aucune sélection -->
-        <div v-if="!current" class="flex-1 grid place-items-center p-8 text-center">
-          <div class="max-w-md">
-            <h2 class="text-2xl font-extrabold">Choisis une entreprise</h2>
-            <p class="mt-2 text-slate-700">Clique sur une candidature pour relire l'échange complet, ou sur une entreprise à contacter pour que l'IA prépare ton e-mail. Rien n'est jamais envoyé sans ton clic sur « Envoyer ».</p>
+      <template v-else>
+        <!-- En-tête entreprise -->
+        <header class="flex flex-wrap items-center justify-between gap-3 px-6 pt-4 pb-3 border-b border-ink/5">
+          <div class="min-w-0">
+            <input v-if="renaming" v-model="renameValue" ref="renameEl"
+                   @keydown.enter="saveRename" @keydown.esc="renaming = false" @blur="saveRename"
+                   class="field text-lg font-semibold px-2.5 py-1 w-full">
+            <h2 v-else class="text-lg font-semibold truncate flex items-center gap-1.5">
+              <span @click="startRename" title="Cliquer pour renommer" class="cursor-text">{{ current.name }}</span>
+              <button @click="startRename" aria-label="Renommer l'entreprise" title="Renommer l'entreprise"
+                      class="shrink-0 text-zinc-400 hover:text-zinc-700">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+              </button>
+            </h2>
+            <p class="text-xs text-zinc-500 truncate mt-0.5">
+              <span v-if="current.sector" class="tag align-middle mr-1.5">{{ current.sector }}</span>
+              <span v-if="current.offer" :title="current.offer" class="tag align-middle mr-1.5">Offre</span>
+              <span v-if="current.email">{{ current.email }}</span>
+              <a v-if="current.website" :href="siteUrl(current.website)" target="_blank" rel="noopener" class="underline ml-2 hover:text-ink">{{ current.website }}</a>
+              <span v-if="current.summary" class="ml-2">· {{ current.summary }}</span>
+            </p>
           </div>
-        </div>
+          <div class="flex items-center gap-2">
+            <label v-if="current.stored_status !== 'prospect'" class="flex items-center gap-2 text-sm text-zinc-600">
+              Statut
+              <select :value="current.stored_status" @change="forceStatus($event.target.value)" class="field px-2.5 py-1.5 text-sm text-ink">
+                <option value="pending">En attente</option>
+                <option value="followup">Relance</option>
+                <option value="replied">Répondu</option>
+                <option value="refused">Refusé</option>
+              </select>
+            </label>
+            <button v-if="messages.length" @click="openMove(messages.map(m => m.id))"
+                    title="Déplacer toute la conversation vers une autre entreprise" aria-label="Déplacer toute la conversation"
+                    class="btn-soft size-9 grid place-items-center">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+            </button>
+            <button @click="openModal('edit')" title="Modifier l'entreprise" aria-label="Modifier l'entreprise"
+                    class="btn-soft size-9 grid place-items-center">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            </button>
+            <button @click="ignoreCompany" title="Ignorer : faux positif ou entreprise inutile (envoie à la corbeille)"
+                    class="btn-soft px-3 h-9 text-sm flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>
+              Ignorer
+            </button>
+          </div>
+        </header>
 
-        <template v-else>
-          <!-- En-tête entreprise -->
-          <header class="flex flex-wrap items-center justify-between gap-3 px-6 pt-4 pb-3">
-            <div class="min-w-0">
-              <input v-if="renaming" v-model="renameValue" ref="renameEl"
-                     @keydown.enter="saveRename" @keydown.esc="renaming = false" @blur="saveRename"
-                     class="text-xl font-extrabold rounded-xl bg-white px-3 py-1 border-0 w-full">
-              <h2 v-else class="text-xl font-extrabold truncate flex items-center gap-1.5">
-                <span @click="startRename" title="Cliquer pour renommer" class="cursor-text">{{ current.name }}</span>
-                <button @click="startRename" aria-label="Renommer l'entreprise" title="Renommer l'entreprise"
-                        class="shrink-0 text-slate-400 hover:text-slate-700">
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+        <!-- Historique en bulles (défile) -->
+        <div ref="chatEl" class="flex-1 min-h-0 overflow-y-auto scroll-thin px-6 py-4 space-y-3">
+          <p v-if="loadingThread" class="text-sm text-zinc-500">Chargement de la conversation…</p>
+          <p v-else-if="!messages.length && !draftExists" class="text-sm text-zinc-500">Aucun e-mail échangé pour l'instant.</p>
+          <div v-for="m in messages" :key="m.id" :class="['flex', m.direction === 'out' ? 'justify-end' : 'justify-start']">
+            <article :class="['max-w-[85%] rounded-2xl px-4 py-3 border',
+                              m.direction === 'out' ? 'bg-[#ebe8f6]/90 border-[#dfdaf0] rounded-br-md' : 'bg-white/90 border-white rounded-bl-md shadow-sm']">
+              <p class="flex items-center gap-2 text-xs text-zinc-500">
+                <span><span class="font-semibold">{{ m.direction === 'out' ? 'Toi' : senderName(m.sender) }}</span> · {{ dateTime(m.sent_at) }}</span>
+                <span v-if="m.has_attachments" title="Pièce jointe">📎</span>
+                <button @click="openMove([m.id])" title="Changer ce mail d'entreprise" aria-label="Changer ce mail d'entreprise"
+                        class="ml-auto shrink-0 rounded-md p-1 opacity-50 hover:opacity-100 hover:bg-black/10">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
                 </button>
-              </h2>
-              <p class="text-xs text-slate-700 truncate">
-                <span v-if="current.sector" :class="['inline-block align-middle mr-2 text-[11px] font-bold rounded-full px-2 py-0.5', sectorCls(current.sector)]">{{ current.sector }}</span>
-                <span v-if="current.offer" :title="current.offer"
-                      class="inline-block align-middle mr-2 text-[11px] font-bold rounded-full bg-slate-200 text-slate-700 px-2 py-0.5">Offre</span>
-                <span v-if="current.email">{{ current.email }}</span>
-                <a v-if="current.website" :href="siteUrl(current.website)" target="_blank" rel="noopener" class="underline ml-2">{{ current.website }}</a>
-                <span v-if="current.summary" class="ml-2 italic">{{ current.summary }}</span>
               </p>
-            </div>
-            <div class="flex items-center gap-2">
-              <label v-if="current.stored_status !== 'prospect'" class="flex items-center gap-2 text-sm font-semibold">
-                Statut
-                <select :value="current.stored_status" @change="forceStatus($event.target.value)"
-                        class="rounded-full bg-white px-3 py-1.5 text-sm font-semibold border-0">
-                  <option value="pending">En attente</option>
-                  <option value="followup">Relance</option>
-                  <option value="replied">Répondu</option>
-                  <option value="refused">Refusé</option>
-                </select>
-              </label>
-              <button v-if="messages.length" @click="openMove(messages.map(m => m.id))"
-                      title="Déplacer toute la conversation vers une autre entreprise" aria-label="Déplacer toute la conversation"
-                      class="size-9 rounded-full bg-white/70 hover:bg-white grid place-items-center">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
-              </button>
-              <button @click="openModal('edit')" title="Modifier l'entreprise" aria-label="Modifier l'entreprise"
-                      class="size-9 rounded-full bg-white/70 hover:bg-white grid place-items-center">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-              </button>
-              <button @click="ignoreCompany" title="Ignorer : faux positif ou entreprise inutile (envoie à la corbeille)"
-                      class="rounded-full bg-white/70 hover:bg-white px-3 py-1.5 text-sm font-semibold flex items-center gap-1.5">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14"/></svg>
-                Ignorer
-              </button>
-            </div>
-          </header>
-
-          <!-- Historique en bulles (défile) -->
-          <div ref="chatEl" class="flex-1 min-h-0 overflow-y-auto scroll-thin px-6 pb-3 space-y-3">
-            <p v-if="loadingThread" class="text-sm text-slate-700">Chargement de la conversation…</p>
-            <p v-else-if="!messages.length && !draftExists" class="text-sm text-slate-700">Aucun e-mail échangé pour l'instant.</p>
-            <div v-for="m in messages" :key="m.id" :class="['flex', m.direction === 'out' ? 'justify-end' : 'justify-start']">
-              <article :class="['max-w-[85%] rounded-3xl px-5 py-3 shadow-sm', m.direction === 'out' ? 'bg-lilac rounded-br-lg' : 'bg-white rounded-bl-lg']">
-                <p class="flex items-center gap-2 text-xs font-bold text-slate-700">
-                  <span>{{ m.direction === 'out' ? 'Toi' : senderName(m.sender) }} • {{ dateTime(m.sent_at) }}</span>
-                  <span v-if="m.has_attachments" title="Pièce jointe">📎</span>
-                  <button @click="openMove([m.id])" title="Changer ce mail d'entreprise" aria-label="Changer ce mail d'entreprise"
-                          class="ml-auto shrink-0 rounded-full p-1 opacity-40 hover:opacity-100 hover:bg-black/10">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
-                  </button>
-                </p>
-                <p v-if="m.subject && m === messages[0]" class="text-sm font-bold mt-0.5">{{ m.subject }}</p>
-                <p class="text-sm mt-1 whitespace-pre-wrap break-words">{{ m.body }}</p>
-              </article>
-            </div>
-            <div v-if="draftExists && !generating && showReplyPanel" class="flex justify-end">
-              <article class="max-w-[85%] rounded-3xl rounded-br-lg px-5 py-2.5 border-2 border-dashed border-ink/40 bg-white/40 text-sm font-semibold">
-                Brouillon non envoyé : {{ kindLabel(editor.kind) }}
-              </article>
-            </div>
+              <p v-if="m.subject && m === messages[0]" class="text-sm font-semibold mt-1">{{ m.subject }}</p>
+              <p class="text-sm mt-1 leading-relaxed whitespace-pre-wrap break-words">{{ m.body }}</p>
+            </article>
           </div>
-
-          <!-- Éditeur (fixe en bas, redimensionnable) -->
-          <div :style="{ height: editorHeight + 'px' }"
-               class="shrink-0 bg-white rounded-t-[1.75rem] mx-2 mb-2 rounded-b-[1.5rem] flex flex-col max-h-[calc(100vh-8rem)]">
-            <!-- Poignée : glisser vers le haut/bas pour agrandir/réduire l'éditeur -->
-            <div role="separator" aria-orientation="horizontal" tabindex="0"
-                 aria-label="Redimensionner la zone de rédaction"
-                 title="Glisser vers le haut ou le bas pour redimensionner"
-                 @mousedown.prevent="startEditorResize" @keydown.up.prevent="nudgeEditorHeight(24)" @keydown.down.prevent="nudgeEditorHeight(-24)"
-                 class="group flex h-4 shrink-0 cursor-ns-resize touch-none items-center justify-center focus:outline-none">
-              <span class="h-1.5 w-14 rounded-full bg-slate-300 transition-colors group-hover:bg-slate-400 group-focus-visible:bg-slate-400"></span>
-            </div>
-            <div class="flex flex-wrap items-center gap-2 px-5 pt-1">
-              <span class="text-sm font-extrabold">{{ editor.kind ? kindLabel(editor.kind) : 'Nouveau message' }}</span>
-              <span class="flex-1"></span>
-              <button v-if="current.stored_status !== 'prospect'" @click="generateDraft('followup')" :disabled="generating"
-                      class="rounded-full bg-lilac hover:bg-lilac-soft disabled:opacity-50 px-3 py-1.5 text-sm font-bold">
-                {{ current.status === 'followup' ? 'Générer la relance' : 'Rédiger une relance' }}
-              </button>
-              <button v-if="current.stored_status !== 'prospect'" @click="showReplyPanel = !showReplyPanel; startReply()" :disabled="generating"
-                      class="rounded-full bg-slate-100 hover:bg-slate-200 disabled:opacity-50 px-3 py-1.5 text-sm font-bold">Répondre</button>
-              <button v-if="current.stored_status === 'prospect'" @click="generateDraft('application')" :disabled="generating"
-                      class="rounded-full bg-lilac hover:bg-lilac-soft disabled:opacity-50 px-3 py-1.5 text-sm font-bold">Régénérer avec l'IA</button>
-              <button v-if="showReplyPanel" @click="correctSpelling" :disabled="generating || correcting"
-                      title="Corrige uniquement l'orthographe, sans rien réécrire"
-                      class="rounded-full bg-white ring-1 ring-inset ring-ink/20 hover:bg-slate-100 disabled:opacity-50 px-3 py-1.5 text-sm font-bold">
-                {{ correcting ? 'Correction…' : 'Corriger l\'orthographe' }}
-              </button>
-              <button v-if="showReplyPanel" @click="openParagraphs" :disabled="generating || correcting"
-                      title="Réécrire un paragraphe à la fois"
-                      class="rounded-full bg-white ring-1 ring-inset ring-ink/20 hover:bg-slate-100 disabled:opacity-50 px-3 py-1.5 text-sm font-bold">
-                Réviser un paragraphe
-              </button>
-            </div>
-
-            <div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 px-5 pt-2 text-sm">
-              <label for="to" class="font-semibold text-slate-600">À</label>
-              <input id="to" v-model="editor.to" type="email" placeholder="adresse@entreprise.fr"
-                     class="min-w-0 rounded-lg bg-slate-100 px-3 py-1.5 border-0">
-              <label for="subj" class="font-semibold text-slate-600">Objet</label>
-              <input id="subj" v-model="editor.subject" type="text" placeholder="Objet de l'e-mail"
-                     class="min-w-0 rounded-lg bg-slate-100 px-3 py-1.5 border-0">
-            </div>
-
-            <div v-show="showReplyPanel" class="flex items-center gap-1 px-5 pt-2" role="toolbar" aria-label="Mise en forme">
-              <button v-for="t in toolbar" :key="t.cmd" @mousedown.prevent="format(t)" :title="t.title" :aria-label="t.title"
-                      class="size-8 rounded-lg hover:bg-slate-100 grid place-items-center text-sm" v-html="t.label"></button>
-            </div>
-
-            <!-- squelette pendant la réflexion de l'IA -->
-            <div v-if="generating || correcting" class="flex-1 min-h-0 px-5 py-3 space-y-2.5" aria-busy="true" aria-live="polite">
-              <p class="text-sm font-semibold text-slate-600">
-                {{ correcting ? 'Correction de l\'orthographe…' : 'L\'IA rédige ton e-mail…' }}
-              </p>
-              <div class="skeleton h-3.5 w-11/12"></div><div class="skeleton h-3.5 w-full"></div>
-              <div class="skeleton h-3.5 w-9/12"></div><div class="skeleton h-3.5 w-10/12"></div>
-              <div class="skeleton h-3.5 w-6/12"></div>
-            </div>
-            <div v-show="!generating && !correcting && showReplyPanel" ref="editorEl" class="editor flex-1 min-h-0 overflow-y-auto scroll-thin px-5 py-3 text-sm leading-relaxed"
-                 contenteditable="true" role="textbox" aria-multiline="true" aria-label="Corps de l'e-mail"
-                 data-placeholder="Écris ton message ici, ou demande à l'IA de le rédiger."
-                 @input="onEditorInput"></div>
-
-            <div class="flex flex-wrap items-center gap-2 px-5 py-3 border-t border-slate-200">
-              <label class="flex items-center gap-2 text-sm font-semibold">
-                <input type="checkbox" v-model="includeCv" class="size-4 rounded">
-                Joindre le CV
-                <span class="font-normal text-slate-600">({{ status.cv.exists ? status.cv.filename : 'aucun CV importé' }})</span>
-              </label>
-              <label class="rounded-full bg-slate-100 hover:bg-slate-200 px-3 py-1 text-sm font-semibold cursor-pointer">
-                + Pièce jointe
-                <input type="file" multiple class="sr-only" @change="addFiles">
-              </label>
-              <span v-for="(f, i) in extraFiles" :key="i" class="inline-flex items-center gap-1 rounded-full bg-lilac-soft px-3 py-1 text-xs font-semibold max-w-[12rem]">
-                <span class="truncate">{{ f.name }}</span>
-                <button @click="extraFiles.splice(i, 1)" :aria-label="'Retirer ' + f.name" class="font-extrabold">×</button>
-              </span>
-              <span class="flex-1"></span>
-              <button v-if="draftExists" @click="discardDraft" class="text-sm font-semibold underline">Supprimer le brouillon</button>
-              <button @click="sendMail" :disabled="generating || sending"
-                      class="rounded-full bg-ink text-white font-extrabold px-6 py-2.5 disabled:opacity-50">
-                {{ sending ? 'Envoi…' : 'Envoyer' }}
-              </button>
-            </div>
+          <div v-if="draftExists && !generating && showReplyPanel" class="flex justify-end">
+            <article class="max-w-[85%] rounded-2xl rounded-br-md px-4 py-2 border border-dashed border-ink/25 bg-white/40 text-sm text-zinc-600">
+              Brouillon non envoyé : {{ kindLabel(editor.kind) }}
+            </article>
           </div>
-        </template>
-      </section>
-
-      <!-- Bandeau du bas : import du dernier CV -->
-      <div @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="onDropCv"
-           :class="['rounded-full px-6 py-3 flex flex-wrap items-center justify-between gap-3 transition-colors',
-                    dragging ? 'bg-lilac ring-2 ring-ink' : 'bg-panel']">
-        <p class="text-sm">
-          <span class="font-extrabold text-base">Import dernier CV</span>
-          <span class="text-slate-700"> — glisse un PDF ici ou choisis un fichier. Il remplace l'ancien et sera joint aux prochains envois.</span>
-        </p>
-        <div class="flex items-center gap-3">
-          <a v-if="status.cv.exists" href="/api/cv/download" target="_blank" rel="noopener" class="text-sm font-semibold underline">
-            {{ status.cv.filename }} (mis à jour {{ ago(status.cv.updated_at) }})
-          </a>
-          <span v-else class="text-sm font-semibold text-red-800">Aucun CV importé</span>
-          <label class="rounded-full bg-ink text-white font-bold text-sm px-4 py-2 cursor-pointer">
-            {{ uploadingCv ? 'Import…' : 'Choisir un PDF' }}
-            <input type="file" accept="application/pdf,.pdf" class="sr-only" @change="onPickCv">
-          </label>
         </div>
-      </div>
+
+        <!-- Éditeur (fixe en bas, redimensionnable) -->
+        <div :style="{ height: editorHeight + 'px' }"
+             class="shrink-0 bg-white/90 border border-white rounded-2xl mx-3 mb-3 shadow-sm flex flex-col max-h-[calc(100vh-8rem)]">
+          <!-- Poignée : glisser vers le haut/bas pour agrandir/réduire l'éditeur -->
+          <div role="separator" aria-orientation="horizontal" tabindex="0"
+               aria-label="Redimensionner la zone de rédaction"
+               title="Glisser vers le haut ou le bas pour redimensionner"
+               @mousedown.prevent="startEditorResize" @keydown.up.prevent="nudgeEditorHeight(24)" @keydown.down.prevent="nudgeEditorHeight(-24)"
+               class="group flex h-3.5 shrink-0 cursor-ns-resize touch-none items-center justify-center focus:outline-none">
+            <span class="h-1 w-10 rounded-full bg-zinc-200 transition-colors group-hover:bg-zinc-400 group-focus-visible:bg-zinc-400"></span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 px-4 pt-0.5">
+            <span class="text-sm font-semibold">{{ editor.kind ? kindLabel(editor.kind) : 'Nouveau message' }}</span>
+            <span class="flex-1"></span>
+            <button v-if="current.stored_status !== 'prospect'" @click="generateDraft('followup')" :disabled="generating"
+                    class="btn-primary disabled:opacity-50 px-3 py-1.5 text-[13px]">
+              {{ current.status === 'followup' ? 'Générer la relance' : 'Rédiger une relance' }}
+            </button>
+            <button v-if="current.stored_status !== 'prospect'" @click="showReplyPanel = !showReplyPanel; startReply()" :disabled="generating"
+                    class="btn-soft disabled:opacity-50 px-3 py-1.5 text-[13px]">Répondre</button>
+            <button v-if="current.stored_status === 'prospect'" @click="generateDraft('application')" :disabled="generating"
+                    class="btn-primary disabled:opacity-50 px-3 py-1.5 text-[13px]">Régénérer avec l'IA</button>
+            <button v-if="showReplyPanel" @click="correctSpelling" :disabled="generating || correcting"
+                    title="Corrige uniquement l'orthographe, sans rien réécrire"
+                    class="btn-soft disabled:opacity-50 px-3 py-1.5 text-[13px]">
+              {{ correcting ? 'Correction…' : 'Corriger l\'orthographe' }}
+            </button>
+            <button v-if="showReplyPanel" @click="openParagraphs" :disabled="generating || correcting"
+                    title="Réécrire un paragraphe à la fois"
+                    class="btn-soft disabled:opacity-50 px-3 py-1.5 text-[13px]">
+              Réviser un paragraphe
+            </button>
+          </div>
+
+          <div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 px-4 pt-2.5 text-sm">
+            <label for="to" class="text-zinc-500">À</label>
+            <input id="to" v-model="editor.to" type="email" placeholder="adresse@entreprise.fr" class="field min-w-0 px-3 py-1.5">
+            <label for="subj" class="text-zinc-500">Objet</label>
+            <input id="subj" v-model="editor.subject" type="text" placeholder="Objet de l'e-mail" class="field min-w-0 px-3 py-1.5">
+          </div>
+
+          <div v-show="showReplyPanel" class="flex items-center gap-0.5 px-4 pt-2" role="toolbar" aria-label="Mise en forme">
+            <button v-for="t in toolbar" :key="t.cmd" @mousedown.prevent="format(t)" :title="t.title" :aria-label="t.title"
+                    class="size-8 rounded-md hover:bg-zinc-100 grid place-items-center text-sm text-zinc-700" v-html="t.label"></button>
+          </div>
+
+          <!-- squelette pendant la réflexion de l'IA -->
+          <div v-if="generating || correcting" class="flex-1 min-h-0 px-4 py-3 space-y-2.5" aria-busy="true" aria-live="polite">
+            <p class="text-sm text-zinc-500">
+              {{ correcting ? 'Correction de l\'orthographe…' : 'L\'IA rédige ton e-mail…' }}
+            </p>
+            <div class="skeleton h-3 w-11/12"></div><div class="skeleton h-3 w-full"></div>
+            <div class="skeleton h-3 w-9/12"></div><div class="skeleton h-3 w-10/12"></div>
+            <div class="skeleton h-3 w-6/12"></div>
+          </div>
+          <div v-show="!generating && !correcting && showReplyPanel" ref="editorEl" class="editor flex-1 min-h-0 overflow-y-auto scroll-thin px-4 py-3 text-sm leading-relaxed"
+               contenteditable="true" role="textbox" aria-multiline="true" aria-label="Corps de l'e-mail"
+               data-placeholder="Écris ton message ici, ou demande à l'IA de le rédiger."
+               @input="onEditorInput"></div>
+
+          <div class="flex flex-wrap items-center gap-2 px-4 py-2.5 border-t border-zinc-100">
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" v-model="includeCv" class="size-4 rounded accent-zinc-900">
+              Joindre le CV
+              <span class="text-zinc-500 truncate max-w-[14rem]">({{ status.cv.exists ? status.cv.filename : 'aucun CV importé' }})</span>
+            </label>
+            <label class="btn-soft px-2.5 py-1 text-[13px] cursor-pointer">
+              + Pièce jointe
+              <input type="file" multiple class="sr-only" @change="addFiles">
+            </label>
+            <span v-for="(f, i) in extraFiles" :key="i" class="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2.5 py-1 text-xs max-w-[12rem]">
+              <span class="truncate">{{ f.name }}</span>
+              <button @click="extraFiles.splice(i, 1)" :aria-label="'Retirer ' + f.name" class="font-semibold text-zinc-500 hover:text-ink">×</button>
+            </span>
+            <span class="flex-1"></span>
+            <button v-if="draftExists" @click="discardDraft" class="text-sm text-zinc-500 hover:text-ink">Supprimer le brouillon</button>
+            <button @click="sendMail" :disabled="generating || sending" class="btn-primary px-5 py-2 text-sm disabled:opacity-50">
+              {{ sending ? 'Envoi…' : 'Envoyer' }}
+            </button>
+          </div>
+        </div>
+      </template>
     </main>
   </div>
 
   <!-- ===================== MODALE ajout / modification ===================== -->
-  <div v-if="modal.open" class="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" @click.self="modal.open = false">
-    <form @submit.prevent="submitModal" class="w-full max-w-md max-h-[90vh] overflow-y-auto scroll-thin bg-white rounded-3xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <h3 id="modal-title" class="text-xl font-extrabold">{{ modal.mode === 'add' ? 'Ajouter une entreprise à contacter' : 'Modifier l\'entreprise' }}</h3>
-      <label class="block text-sm font-semibold">Nom de l'entreprise
-        <input v-model="modal.form.name" required ref="modalName" class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+  <div v-if="modal.open" class="fixed inset-0 z-50 grid place-items-center bg-zinc-900/30 backdrop-blur-sm p-4" @click.self="modal.open = false">
+    <form @submit.prevent="submitModal" class="w-full max-w-md max-h-[90vh] overflow-y-auto scroll-thin bg-white rounded-2xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h3 id="modal-title" class="text-lg font-semibold">{{ modal.mode === 'add' ? 'Ajouter une entreprise à contacter' : 'Modifier l\'entreprise' }}</h3>
+      <label class="block text-sm font-medium">Nom de l'entreprise
+        <input v-model="modal.form.name" required ref="modalName" class="field mt-1 w-full px-3 py-2 font-normal">
       </label>
-      <label class="block text-sm font-semibold">Site web
-        <input v-model="modal.form.website" placeholder="www.exemple.fr" class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+      <label class="block text-sm font-medium">Site web
+        <input v-model="modal.form.website" placeholder="www.exemple.fr" class="field mt-1 w-full px-3 py-2 font-normal">
       </label>
-      <label class="block text-sm font-semibold">Secteur / ce que fait l'entreprise
+      <label class="block text-sm font-medium">Secteur / ce que fait l'entreprise
         <input v-model="modal.form.sector" list="sector-list" placeholder="ex. Robotique, Vision / Perception, Développement…"
-               class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+               class="field mt-1 w-full px-3 py-2 font-normal">
         <datalist id="sector-list">
           <option v-for="s in sectorOptions" :key="s" :value="s"></option>
         </datalist>
       </label>
-      <label class="block text-sm font-semibold">Offre de stage / poste visé (optionnel)
+      <label class="block text-sm font-medium">Offre de stage / poste visé (optionnel)
         <textarea v-model="modal.form.offer" rows="4"
                   placeholder="Colle ici l'annonce ou le poste visé : l'IA s'en sert pour parler de l'entreprise (1er paragraphe) et choisir le projet en lien (3e paragraphe)."
-                  class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal resize-y"></textarea>
+                  class="field mt-1 w-full px-3 py-2 font-normal resize-y"></textarea>
       </label>
-      <label class="block text-sm font-semibold">E-mail de contact
-        <input v-model="modal.form.email" type="email" placeholder="recrutement@exemple.fr" class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+      <label class="block text-sm font-medium">E-mail de contact
+        <input v-model="modal.form.email" type="email" placeholder="recrutement@exemple.fr" class="field mt-1 w-full px-3 py-2 font-normal">
       </label>
-      <p v-if="modal.error" class="text-sm font-semibold text-red-700">{{ modal.error }}</p>
+      <p v-if="modal.error" class="text-sm font-medium text-red-700">{{ modal.error }}</p>
       <div class="flex justify-end gap-2">
-        <button type="button" @click="modal.open = false" class="rounded-full px-4 py-2 font-semibold hover:bg-slate-100">Annuler</button>
-        <button type="submit" class="rounded-full bg-ink text-white font-extrabold px-5 py-2">{{ modal.mode === 'add' ? 'Ajouter' : 'Enregistrer' }}</button>
+        <button type="button" @click="modal.open = false" class="btn-soft px-4 py-2 text-sm">Annuler</button>
+        <button type="submit" class="btn-primary px-4 py-2 text-sm">{{ modal.mode === 'add' ? 'Ajouter' : 'Enregistrer' }}</button>
       </div>
     </form>
   </div>
 
   <!-- ===================== MODALE déplacer vers une entreprise ===================== -->
-  <div v-if="move.open" class="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" @click.self="move.open = false">
-    <div class="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="move-title">
-      <h3 id="move-title" class="text-xl font-extrabold">
+  <div v-if="move.open" class="fixed inset-0 z-50 grid place-items-center bg-zinc-900/30 backdrop-blur-sm p-4" @click.self="move.open = false">
+    <div class="w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="move-title">
+      <h3 id="move-title" class="text-lg font-semibold">
         Déplacer {{ move.ids.length > 1 ? 'la conversation' : 'ce mail' }} vers…
       </h3>
-      <input v-model="move.search" placeholder="Rechercher une entreprise" aria-label="Rechercher une entreprise"
-             class="w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0">
-      <div class="max-h-60 overflow-y-auto scroll-thin space-y-1">
+      <input v-model="move.search" placeholder="Rechercher une entreprise" aria-label="Rechercher une entreprise" class="field w-full px-3 py-2">
+      <div class="max-h-60 overflow-y-auto scroll-thin space-y-0.5">
         <button v-for="c in moveTargets" :key="c.id" @click="moveTo(c.id)" :disabled="busyMove"
-                class="w-full text-left rounded-xl px-3 py-2 hover:bg-lilac-soft disabled:opacity-40">
-          <span class="font-semibold">{{ c.name }}</span>
-          <span v-if="c.email || c.website" class="block text-xs text-slate-500 truncate">{{ c.email || c.website }}</span>
+                class="w-full text-left rounded-lg px-3 py-2 hover:bg-zinc-100 disabled:opacity-40">
+          <span class="text-sm font-medium">{{ c.name }}</span>
+          <span v-if="c.email || c.website" class="block text-xs text-zinc-500 truncate">{{ c.email || c.website }}</span>
         </button>
-        <p v-if="!moveTargets.length" class="text-sm text-slate-500 px-1">Aucune entreprise ne correspond.</p>
+        <p v-if="!moveTargets.length" class="text-sm text-zinc-500 px-1">Aucune entreprise ne correspond.</p>
       </div>
-      <div class="border-t border-slate-200 pt-3">
-        <label class="block text-sm font-semibold">Ou créer une nouvelle entreprise
+      <div class="border-t border-zinc-100 pt-3">
+        <label class="block text-sm font-medium">Ou créer une nouvelle entreprise
           <div class="mt-1 flex gap-2">
             <input v-model="move.newName" placeholder="Nom de l'entreprise" @keydown.enter="createAndMove"
-                   class="min-w-0 flex-1 rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+                   class="field min-w-0 flex-1 px-3 py-2 font-normal">
             <button @click="createAndMove" :disabled="!move.newName.trim() || busyMove"
-                    class="rounded-full bg-ink text-white font-bold px-4 disabled:opacity-40">Créer</button>
+                    class="btn-primary px-4 text-sm disabled:opacity-40">Créer</button>
           </div>
         </label>
       </div>
-      <p v-if="move.error" class="text-sm font-semibold text-red-700">{{ move.error }}</p>
+      <p v-if="move.error" class="text-sm font-medium text-red-700">{{ move.error }}</p>
       <div class="flex justify-end">
-        <button @click="move.open = false" class="rounded-full px-4 py-2 font-semibold hover:bg-slate-100">Fermer</button>
+        <button @click="move.open = false" class="btn-soft px-4 py-2 text-sm">Fermer</button>
       </div>
     </div>
   </div>
 
   <!-- ===================== MODALE réviser un paragraphe ===================== -->
-  <div v-if="paragraph.open" class="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" @click.self="paragraph.open = false">
-    <div class="w-full max-w-lg max-h-[90vh] overflow-y-auto scroll-thin bg-white rounded-3xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="paragraph-title">
-      <h3 id="paragraph-title" class="text-xl font-extrabold">Réviser un paragraphe</h3>
-      <p class="text-sm text-slate-600">Choisis un paragraphe : l'IA en propose une autre version sans toucher aux autres.</p>
-      <label class="block text-sm font-semibold">Consigne (optionnel)
-        <input v-model="paragraph.instruction" placeholder="ex. plus court, autre exemple, plus simple…"
-               class="mt-1 w-full rounded-xl bg-slate-100 px-4 py-2.5 border-0 font-normal">
+  <div v-if="paragraph.open" class="fixed inset-0 z-50 grid place-items-center bg-zinc-900/30 backdrop-blur-sm p-4" @click.self="paragraph.open = false">
+    <div class="w-full max-w-lg max-h-[90vh] overflow-y-auto scroll-thin bg-white rounded-2xl p-6 shadow-2xl space-y-4" role="dialog" aria-modal="true" aria-labelledby="paragraph-title">
+      <h3 id="paragraph-title" class="text-lg font-semibold">Réviser un paragraphe</h3>
+      <p class="text-sm text-zinc-600">Choisis un paragraphe : l'IA en propose une autre version sans toucher aux autres.</p>
+      <label class="block text-sm font-medium">Consigne (optionnel)
+        <input v-model="paragraph.instruction" placeholder="ex. plus court, autre exemple, plus simple…" class="field mt-1 w-full px-3 py-2 font-normal">
       </label>
       <ol class="space-y-2">
-        <li v-for="(p, i) in paragraph.items" :key="i" class="flex items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3">
-          <span class="shrink-0 font-extrabold text-slate-500">{{ i + 1 }}</span>
-          <span class="min-w-0 flex-1 text-sm text-slate-700 line-clamp-3 whitespace-pre-wrap break-words">{{ p || '(paragraphe vide)' }}</span>
-          <button @click="rewriteParagraph(i)" :disabled="paragraph.busy >= 0"
-                  class="shrink-0 rounded-full bg-ink text-white font-bold text-xs px-3 py-1.5 disabled:opacity-40">
+        <li v-for="(p, i) in paragraph.items" :key="i" class="flex items-start gap-3 rounded-xl bg-zinc-50 border border-zinc-100 px-4 py-3">
+          <span class="shrink-0 font-semibold text-zinc-400">{{ i + 1 }}</span>
+          <span class="min-w-0 flex-1 text-sm text-zinc-700 line-clamp-3 whitespace-pre-wrap break-words">{{ p || '(paragraphe vide)' }}</span>
+          <button @click="rewriteParagraph(i)" :disabled="paragraph.busy >= 0" class="btn-primary shrink-0 text-xs px-3 py-1.5 disabled:opacity-40">
             {{ paragraph.busy === i ? '…' : 'Autre version' }}
           </button>
         </li>
-        <li v-if="!paragraph.items.length" class="text-sm text-slate-600 px-1">Aucun paragraphe à réviser.</li>
+        <li v-if="!paragraph.items.length" class="text-sm text-zinc-500 px-1">Aucun paragraphe à réviser.</li>
       </ol>
-      <p v-if="paragraph.error" class="text-sm font-semibold text-red-700">{{ paragraph.error }}</p>
+      <p v-if="paragraph.error" class="text-sm font-medium text-red-700">{{ paragraph.error }}</p>
       <div class="flex justify-end">
-        <button @click="paragraph.open = false" class="rounded-full px-4 py-2 font-semibold hover:bg-slate-100">Fermer</button>
+        <button @click="paragraph.open = false" class="btn-soft px-4 py-2 text-sm">Fermer</button>
       </div>
     </div>
   </div>
 
   <!-- ===================== TOAST ===================== -->
   <div v-if="toast.text" role="status" aria-live="polite"
-       :class="['fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] max-w-[90vw] rounded-full px-5 py-3 text-sm font-bold shadow-xl',
-                toast.error ? 'bg-red-700 text-white' : 'bg-ink text-white']">
+       :class="['fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] max-w-[90vw] rounded-xl px-4 py-2.5 text-sm font-medium shadow-xl',
+                toast.error ? 'bg-red-600 text-white' : 'bg-ink text-white']">
     {{ toast.text }}
   </div>
 </div>
@@ -525,12 +553,16 @@
 const { createApp, ref, reactive, computed, watch, nextTick, onMounted } = Vue;
 
 const STATUS = {
-  pending:  { label: 'En attente', cls: 'bg-amber-300 text-amber-950' },
-  followup: { label: 'Relance',    cls: 'bg-red-300 text-red-950' },
-  replied:  { label: 'Répondu',    cls: 'bg-emerald-300 text-emerald-950' },
-  refused:  { label: 'Refusé',     cls: 'bg-slate-400/70 text-slate-900' },
-  prospect: { label: 'À contacter', cls: 'bg-white/70 text-slate-800' },
+  pending:  { label: 'En attente',  dot: 'bg-amber-500',   text: 'text-amber-700' },
+  followup: { label: 'Relance',     dot: 'bg-orange-500',  text: 'text-orange-700' },
+  replied:  { label: 'Répondu',     dot: 'bg-emerald-500', text: 'text-emerald-700' },
+  refused:  { label: 'Refusé',      dot: 'bg-zinc-400',    text: 'text-zinc-500' },
+  prospect: { label: 'À contacter', dot: 'bg-zinc-300',    text: 'text-zinc-500' },
 };
+const statusOf = (c) => STATUS[c.status] || STATUS.prospect;
+// « Relance J+14 » quand l'échéance est connue, sinon le libellé simple.
+const statusLabel = (c) => (c.status === 'followup' && c.due_label
+  ? 'Relance ' + c.due_label : (STATUS[c.status]?.label || c.status));
 
 // Messages de repli quand le serveur ne renvoie pas de `detail` lisible.
 const HTTP_HINTS = {
@@ -572,7 +604,7 @@ createApp({
     const status = reactive({
       gmail_connected: false, needs_reauth: false, has_client_secret: true, ai_enabled: false,
       sectors: [],
-      cv: { exists: false }, sync: { running: false }, tokens: { month_tokens: 0, budget: 1, percent: 0, month_requests: 0, today_requests: 0, model: '' },
+      cv: { exists: false }, sync: { running: false },
     });
     const companies = reactive({ active: [], prospects: [], trash: [] });
     const notifs = reactive({ unread: 0, items: [] });
@@ -591,21 +623,6 @@ createApp({
       const present = [...companies.active, ...companies.prospects, ...companies.trash].map(sectorOf).filter(Boolean);
       return [...new Set([...status.sectors, ...present])];
     });
-    const SECTOR_CLS = {
-      'Développement logiciel': 'bg-sky-200 text-sky-950',
-      'Web / Full-stack': 'bg-indigo-200 text-indigo-950',
-      'Mobile': 'bg-cyan-200 text-cyan-950',
-      'Robotique': 'bg-orange-200 text-orange-950',
-      'Vision / Perception': 'bg-violet-200 text-violet-950',
-      'IA / Data': 'bg-fuchsia-200 text-fuchsia-950',
-      'Systèmes embarqués / IoT': 'bg-teal-200 text-teal-950',
-      'Réseau / Infrastructure': 'bg-emerald-200 text-emerald-950',
-      'Cybersécurité': 'bg-red-200 text-red-950',
-      'Cloud / DevOps': 'bg-amber-200 text-amber-950',
-      'Jeux vidéo': 'bg-pink-200 text-pink-950',
-      'Recherche / Labo': 'bg-slate-300 text-slate-900',
-    };
-    const sectorCls = (s) => SECTOR_CLS[s] || 'bg-white/80 text-slate-800';
     const toast = reactive({ text: '', error: false });
 
     // ---------- sélection / conversation ----------
@@ -703,7 +720,6 @@ createApp({
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => (toast.text = ''), error ? 6000 : 3000);
     }
-    const fmt = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1).replace('.0', '') + ' M' : n >= 1e3 ? Math.round(n / 1e3) + ' k' : String(n || 0));
     const dateTime = (iso) => new Date(iso).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
     function ago(iso) {
       if (!iso) return '';
@@ -1088,13 +1104,13 @@ createApp({
     watch(showTrash, () => { /* la corbeille remplace la liste, rien d'autre à faire */ });
 
     return {
-      STATUS, status, companies, notifs, nextFollowup, showTrash, showNotifs, toast,
-      sectorFilter, visibleCompanies, filteredProspects, sectorOptions, sectorCls,
+      STATUS, statusOf, statusLabel, status, companies, notifs, nextFollowup, showTrash, showNotifs, toast,
+      sectorFilter, visibleCompanies, filteredProspects, sectorOptions,
       selectedId, current, messages, loadingThread, generating, correcting, sending, draftExists, editor, showReplyPanel, includeCv, extraFiles,
       editorEl, chatEl, editorHeight, startEditorResize, nudgeEditorHeight, dragging, uploadingCv, modal, modalName, toolbar,
       renaming, renameValue, renameEl, busyMove, move, moveTargets,
       paragraph,
-      fmt, dateTime, ago, dayDiff, senderName, siteUrl, kindLabel,
+      dateTime, ago, dayDiff, senderName, siteUrl, kindLabel,
       selectCompany, generateDraft, startReply, correctSpelling, prepareFollowup, discardDraft, addFiles, sendMail,
       openParagraphs, rewriteParagraph,
       openModal, submitModal, forceStatus, ignoreCompany, restoreCompany, toggleNotifs, markAllRead, openNotification,

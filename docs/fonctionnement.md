@@ -97,7 +97,7 @@ Côté fiabilité : les appels sont espacés de `AI_MIN_INTERVAL_SECONDS` (limit
 réessayés sur 429/5xx ; si le modèle principal reste indisponible, `GEMINI_FALLBACK_MODELS` sont
 essayés dans l'ordre. Le « raisonnement » des modèles Gemini 2.5 et des alias `*-latest` est
 désactivé (`thinkingBudget = 0`) car il consommait le budget de sortie et tronquait la réponse.
-Chaque appel est journalisé dans `token_log`, qui alimente la jauge de tokens.
+Chaque appel est journalisé dans `token_log` (consultable via `/api/tokens` ; la jauge a été retirée de l'interface).
 
 ---
 
@@ -156,7 +156,7 @@ déclarées dans `_ADDED_COLUMNS` (pas d'outil de migration).
 | `message` | messages d'un fil (direction `in`/`out`, objet, corps, date) |
 | `draft` | brouillon édité en cours (un par entreprise) |
 | `notification` | journal des relances/réponses à traiter |
-| `token_log` | consommation Gemini (jauge de tokens) |
+| `token_log` | consommation Gemini (`/api/tokens`) |
 | `skipped_thread` | fils écartés par le pré-filtre |
 | `kv` | petites valeurs de service (adresse Gmail, `history_id`, nom du CV…) |
 

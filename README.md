@@ -62,7 +62,7 @@ machine, sauf ce que tu envoies volontairement à Google (Gmail, Gemini).
 - **Offre de stage / poste visé** : dans la fiche d'une entreprise, tu peux coller l'annonce (ou
   décrire le poste). Elle sert de référence à l'IA pour parler concrètement de l'entreprise dans le
   **1er paragraphe** et pour choisir le **projet en lien** dans le dernier paragraphe.
-- **Jauge de tokens**, centre de notifications, corbeille pour les faux positifs.
+- Centre de notifications, corbeille pour les faux positifs.
 - **Jamais d'envoi automatique** : tout passe par le bouton « Envoyer ».
 
 ## Comment ça marche
@@ -239,7 +239,7 @@ cp .env.example .env
 | `GEMINI_API_KEY` | *(vide)* | Clé Gemini (vide = rédaction IA désactivée) |
 | `GEMINI_MODEL` | `gemini-flash-latest` | Modèle principal |
 | `GEMINI_FALLBACK_MODELS` | `gemini-2.5-flash,gemini-flash-lite-latest` | Modèles de repli (503) |
-| `GEMINI_MONTHLY_TOKEN_BUDGET` | `1000000` | Budget affiché dans la jauge de tokens |
+| `GEMINI_MONTHLY_TOKEN_BUDGET` | `1000000` | Budget indicatif renvoyé par `/api/tokens` (plus affiché dans l'interface) |
 | `AI_MIN_INTERVAL_SECONDS` | `4` | Pause minimale entre deux appels IA |
 | `OLLAMA_ENABLED` | `true` | Active la classification locale |
 | `OLLAMA_HOST` | `http://localhost:11434` | URL du serveur Ollama |

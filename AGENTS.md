@@ -49,7 +49,7 @@ threads with a **local** model (Ollama), and drafts internship applications/foll
 - **Gemini = drafting only** (`app/gemini_client.py`): application and follow-up text, plus website
   context, plus spelling-only correction of an edited draft (`correct_spelling`, ne touche pas au
   contenu), plus réécriture d'un seul paragraphe (`draft_paragraph`). Token usage is logged to
-  `token_log` (feeds the UI gauge).
+  `token_log` (exposed by `/api/tokens`; no longer shown in the UI).
 - **Style imposé aux brouillons** : aucun superlatif ni mot compliqué (vocabulaire simple, phrases
   courtes), et **jamais de ligne « Objet : »/d'en-tête dans le corps** (l'objet est un champ séparé).
   Consigne présente dans `_application_system`, `draft_followup`, `draft_reply` (qui présentent le
